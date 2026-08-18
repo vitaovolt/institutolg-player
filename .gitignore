@@ -1,0 +1,59 @@
+# Dependências
+**/node_modules/
+**/vendor/
+
+# Ambientes e segredos
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production
+**/*.pfx
+**/*.p12
+**/auth.json
+**/certificados/
+**/certs/
+**/secrets/
+!**/secrets/.gitignore
+
+# Builds e caches
+**/dist/
+**/public/build/
+**/public/hot/
+**/public/storage
+**/.phpunit.cache/
+**/.phpunit.result.cache
+**/storage/*.key
+**/storage/pail
+**/storage/logs/*
+!**/storage/logs/.gitignore
+**/storage/framework/cache/*
+!**/storage/framework/cache/.gitignore
+**/storage/framework/sessions/*
+!**/storage/framework/sessions/.gitignore
+**/storage/framework/views/*
+!**/storage/framework/views/.gitignore
+**/storage/app/private/*
+!**/storage/app/private/.gitignore
+**/storage/app/public/*
+!**/storage/app/public/.gitignore
+**/bootstrap/cache/*.php
+!**/bootstrap/cache/.gitignore
+
+# Testes / Playwright
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.fleet/
+.zed/
+*.suo
+*.sw?
+
+# Dumps locais
+*.sql

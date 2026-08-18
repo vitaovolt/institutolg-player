@@ -1,0 +1,569 @@
+openapi: 3.0.3
+info:
+  title: Instituto LG — Biblioteca de aulas API
+  version: 0.7.0
+  description: |
+    API do painel (coordenação). Aluno não usa esta API — assiste na Eduq.
+    Health: 200 com checks.database=ok; 503 se o banco cair (smoke de deploy).
+    Auth Sanctum Bearer + Policy por recurso (conta `ativo`). Envio: PUT `/envios/{token}` (sem Bearer).
+    Player público (web, não JSON): `GET /assistir/{token_publico}` (iframe) e mídia com URL assinada temporária.
+    Cópia para a pasta compartilhada: job na fila `biblioteca` (aula pode estar Pronta com cópia pendente).
+    Rotas privadas: 401 sem token; 403 se a conta não puder gerir o acervo.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Saúde da API e do banco
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: API e banco ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '503':
+          description: Banco indisponível
+  /auth/login:
+    post:
+      operationId: login
+      summary: Login da coordenação (Bearer)
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                device_name:
+                  type: string
+      responses:
+        '200':
+          description: Token + usuário
+        '403':
+          description: Conta inativa / sem permissão de gerir o acervo
+        '422':
+          description: Credenciais inválidas
+  /auth/me:
+    get:
+      operationId: me
+      summary: Usuário autenticado
+      tags: [Auth]
+      responses:
+        '200':
+          description: Perfil
+        '401':
+          description: Sem token
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revoga o token atual
+      tags: [Auth]
+      responses:
+        '200':
+          description: Logout
+        '401':
+          description: Sem token
+  /auth/refresh:
+    post:
+      operationId: refresh
+      summary: Rotaciona o token
+      tags: [Auth]
+      responses:
+        '200':
+          description: Novo token
+        '401':
+          description: Sem token
+  /biblioteca:
+    get:
+      operationId: bibliotecaArvore
+      summary: Árvore Curso → Turma → Disciplina → Aula
+      tags: [Biblioteca]
+      responses:
+        '200':
+          description: Lista de cursos com relações
+        '401':
+          description: Sem token
+        '403':
+          description: Conta sem permissão
+  /resumo-mes:
+    get:
+      operationId: resumoDoMes
+      summary: Envios e mensalidade do mês (não é BI de plays)
+      tags: [Biblioteca]
+      parameters:
+        - name: mes
+          in: query
+          schema:
+            type: string
+            example: '2026-08'
+      responses:
+        '200':
+          description: Contagens e totais
+  /cursos:
+    get:
+      operationId: listarCursos
+      tags: [Cursos]
+      responses:
+        '200':
+          description: Lista
+    post:
+      operationId: criarCurso
+      tags: [Cursos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome:
+                  type: string
+      responses:
+        '201':
+          description: Criado
+        '422':
+          description: Validação
+  /cursos/{curso}:
+    parameters:
+      - $ref: '#/components/parameters/CursoId'
+    get:
+      operationId: verCurso
+      tags: [Cursos]
+      responses:
+        '200':
+          description: Curso
+        '404':
+          description: Não encontrado
+    put:
+      operationId: atualizarCurso
+      tags: [Cursos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome:
+                  type: string
+      responses:
+        '200':
+          description: Atualizado
+    delete:
+      operationId: excluirCurso
+      tags: [Cursos]
+      responses:
+        '200':
+          description: Removido
+        '409':
+          description: Tem turmas
+  /cursos/{curso}/turmas:
+    parameters:
+      - $ref: '#/components/parameters/CursoId'
+    get:
+      operationId: listarTurmas
+      tags: [Turmas]
+      responses:
+        '200':
+          description: Lista
+    post:
+      operationId: criarTurma
+      tags: [Turmas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome:
+                  type: string
+      responses:
+        '201':
+          description: Criada
+  /turmas/{turma}:
+    parameters:
+      - $ref: '#/components/parameters/TurmaId'
+    get:
+      operationId: verTurma
+      tags: [Turmas]
+      responses:
+        '200':
+          description: Turma
+    put:
+      operationId: atualizarTurma
+      tags: [Turmas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome:
+                  type: string
+      responses:
+        '200':
+          description: Atualizada
+    delete:
+      operationId: excluirTurma
+      tags: [Turmas]
+      responses:
+        '200':
+          description: Removida
+        '409':
+          description: Tem disciplinas
+  /turmas/{turma}/disciplinas:
+    parameters:
+      - $ref: '#/components/parameters/TurmaId'
+    get:
+      operationId: listarDisciplinas
+      tags: [Disciplinas]
+      responses:
+        '200':
+          description: Lista
+    post:
+      operationId: criarDisciplina
+      tags: [Disciplinas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome:
+                  type: string
+      responses:
+        '201':
+          description: Criada
+  /disciplinas/{disciplina}:
+    parameters:
+      - $ref: '#/components/parameters/DisciplinaId'
+    get:
+      operationId: verDisciplina
+      tags: [Disciplinas]
+      responses:
+        '200':
+          description: Disciplina
+    put:
+      operationId: atualizarDisciplina
+      tags: [Disciplinas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nome]
+              properties:
+                nome:
+                  type: string
+      responses:
+        '200':
+          description: Atualizada
+    delete:
+      operationId: excluirDisciplina
+      tags: [Disciplinas]
+      responses:
+        '200':
+          description: Removida
+        '409':
+          description: Tem aulas
+  /disciplinas/{disciplina}/aulas:
+    parameters:
+      - $ref: '#/components/parameters/DisciplinaId'
+    get:
+      operationId: listarAulas
+      tags: [Aulas]
+      responses:
+        '200':
+          description: Lista
+    post:
+      operationId: criarAula
+      tags: [Aulas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [titulo]
+              properties:
+                titulo:
+                  type: string
+      responses:
+        '201':
+          description: Criada (rascunho; envio MP4 em /envios)
+  /disciplinas/{disciplina}/envios:
+    parameters:
+      - $ref: '#/components/parameters/DisciplinaId'
+    post:
+      operationId: iniciarEnvioAula
+      summary: Inicia envio (título + URL de PUT). Header Idempotency-Key evita aula duplicada.
+      tags: [Envios]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [titulo, chave_idempotencia]
+              properties:
+                titulo:
+                  type: string
+                chave_idempotencia:
+                  type: string
+                  format: uuid
+                tamanho_bytes:
+                  type: integer
+      responses:
+        '201':
+          description: Envio novo (upload_path para PUT)
+        '200':
+          description: Mesma chave — retoma o envio
+        '401':
+          description: Sem token
+        '422':
+          description: Título duplicado ou arquivo grande demais
+  /envios/{token}:
+    put:
+      operationId: receberArquivoEnvio
+      summary: PUT do MP4 (export). Sem Bearer — o token é a autorização.
+      tags: [Envios]
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          video/mp4:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Arquivo gravado
+        '404':
+          description: Token inválido ou envio já concluído
+        '422':
+          description: Não é MP4 / grande demais
+  /aulas/{aula}/envios/concluir:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: concluirEnvioAula
+      summary: Confirma o PUT e enfileira o job de preparar a aula (não no request)
+      tags: [Envios]
+      responses:
+        '200':
+          description: status_preparo=preparando; job na fila
+        '422':
+          description: Arquivo ainda não chegou
+  /aulas/{aula}/envios/reprocessar:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: reprocessarEnvioAula
+      summary: Tentar de novo quando status=erro e o arquivo existe
+      tags: [Envios]
+      responses:
+        '200':
+          description: Job reenfileirado
+        '422':
+          description: Não dá para reprocessar
+  /aulas/{aula}:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    get:
+      operationId: verAula
+      tags: [Aulas]
+      responses:
+        '200':
+          description: Aula
+    put:
+      operationId: atualizarAula
+      tags: [Aulas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [titulo]
+              properties:
+                titulo:
+                  type: string
+                ordem:
+                  type: integer
+      responses:
+        '200':
+          description: Atualizada
+    delete:
+      operationId: excluirAula
+      tags: [Aulas]
+      responses:
+        '200':
+          description: Removida
+  /aulas/{aula}/envios/substituir:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: iniciarSubstituicaoAula
+      summary: Novo PUT do MP4 na mesma aula (token_publico/HTML não mudam)
+      tags: [Envios]
+      responses:
+        '200':
+          description: upload_path para PUT
+        '401':
+          description: Sem token
+        '422':
+          description: Aula ainda não pronta ou em preparação
+  /aulas/{aula}/publicar:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: publicarAula
+      summary: Aula entra na biblioteca do aluno e na linha de R$ 3,80
+      tags: [Aulas]
+      responses:
+        '200':
+          description: Publicada
+        '401':
+          description: Sem token
+        '422':
+          description: Ainda não está pronta
+  /aulas/{aula}/despublicar:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: despublicarAula
+      summary: Tira da biblioteca do aluno e da cobrança; HTML na Eduq não some sozinho
+      tags: [Aulas]
+      responses:
+        '200':
+          description: Despublicada
+        '401':
+          description: Sem token
+  /aulas/{aula}/drive/reprocessar:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: reprocessarCopiaDrive
+      summary: Reenfileira a cópia para a pasta compartilhada (não bloqueia o play)
+      tags: [Envios]
+      responses:
+        '200':
+          description: Job na fila biblioteca
+        '401':
+          description: Sem token
+        '422':
+          description: Aula ainda não pronta
+  /aulas/{aula}/capa:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: salvarCapaAula
+      summary: Foto de capa (JPG/PNG) que aparece no player antes de assistir
+      tags: [Aulas]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [capa]
+              properties:
+                capa:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Capa salva
+        '401':
+          description: Sem token
+        '422':
+          description: Não é imagem ou arquivo grande demais
+    delete:
+      operationId: removerCapaAula
+      summary: Remove a foto de capa
+      tags: [Aulas]
+      responses:
+        '200':
+          description: Capa removida
+        '401':
+          description: Sem token
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    CursoId:
+      name: curso
+      in: path
+      required: true
+      schema:
+        type: integer
+    TurmaId:
+      name: turma
+      in: path
+      required: true
+      schema:
+        type: integer
+    DisciplinaId:
+      name: disciplina
+      in: path
+      required: true
+      schema:
+        type: integer
+    AulaId:
+      name: aula
+      in: path
+      required: true
+      schema:
+        type: integer
+  schemas:
+    Envelope:
+      type: object
+      required: [success, data, message, errors]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string

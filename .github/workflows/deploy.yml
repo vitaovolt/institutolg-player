@@ -1,0 +1,91 @@
+name: Deploy to Production
+
+# CI no GitHub (hosted). Deploy no runner da EC2 — SSH 22 fica só no IP do admin.
+# Padrão: educraft-devkit/standards/DEPLOY-GITHUB.md (self-hosted + Deploy Key no disco).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64]
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Deploy no servidor
+        env:
+          REPO_DEPLOY_KEY: ${{ secrets.REPO_DEPLOY_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -e
+          if [ -z "$DEPLOY_PATH" ]; then
+            echo "Secret DEPLOY_PATH não configurado."
+            exit 1
+          fi
+          cd "$DEPLOY_PATH"
+
+          sudo chown -R "$(whoami):$(whoami)" .
+          git config --global --add safe.directory "$DEPLOY_PATH"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 600 ~/.ssh/known_hosts
+
+          # Um arquivo por repo na mesma EC2 — não usar id_rsa.
+          KEYFILE="$HOME/.ssh/institutolgplayer_github"
+          if [ ! -f "$KEYFILE" ] && [ -n "$REPO_DEPLOY_KEY" ]; then
+            printf '%s\n' "$REPO_DEPLOY_KEY" > "$KEYFILE"
+            chmod 600 "$KEYFILE"
+          fi
+          if [ ! -f "$KEYFILE" ]; then
+            echo "Falta $KEYFILE. Na EC2: ssh-keygen -t ed25519 -f $KEYFILE -N ''"
+            echo "Cadastre o .pub em Settings → Deploy keys deste repo."
+            exit 1
+          fi
+          chmod 600 "$KEYFILE"
+          export GIT_SSH_COMMAND="ssh -i $KEYFILE -o IdentitiesOnly=yes"
+
+          git remote set-url origin git@github.com:vitaovolt/institutolg-player.git
+          git fetch origin
+          git reset --hard origin/main
+
+          cd "$DEPLOY_PATH/code/backend"
+          composer install --no-dev --optimize-autoloader --no-interaction
+          php artisan migrate --force
+          php artisan optimize:clear
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          sudo chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+          sudo chmod -R 775 storage bootstrap/cache 2>/dev/null || true
+
+          cd "$DEPLOY_PATH/code/frontend"
+          npm ci
+          VITE_API_URL=/api/v1 npm run build
+
+          sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
+          sudo find "$DEPLOY_PATH" -type d -exec chmod 775 {} \;
+          sudo find "$DEPLOY_PATH" -type f -exec chmod 664 {} \;
+          sudo chmod 640 "$DEPLOY_PATH/code/backend/.env" 2>/dev/null || true
+          sudo chmod -R 775 "$DEPLOY_PATH/code/backend/storage" "$DEPLOY_PATH/code/backend/bootstrap/cache"
+          sudo chmod +x "$DEPLOY_PATH/code/backend/artisan"
+
+          UNIT=/etc/systemd/system/institutolg-player-queue.service
+          if [ ! -f "$UNIT" ]; then
+            sudo cp "$DEPLOY_PATH/deploy/systemd/institutolg-player-queue.service" "$UNIT"
+            sudo systemctl daemon-reload
+            sudo systemctl enable institutolg-player-queue
+          fi
+
+          sudo systemctl reload php8.2-fpm 2>/dev/null || sudo systemctl reload php8.3-fpm 2>/dev/null || true
+          sudo systemctl restart institutolg-player-queue
+          sudo systemctl reload nginx 2>/dev/null || true
+
+          echo "Deploy concluído em $DEPLOY_PATH"

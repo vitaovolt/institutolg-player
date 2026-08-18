@@ -1,0 +1,16 @@
+[Unit]
+Description=Instituto LG Biblioteca — worker da fila biblioteca
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=3
+WorkingDirectory=/var/www/institutolg-player/code/backend
+ExecStart=/usr/bin/php artisan queue:work database --queue=biblioteca --sleep=3 --tries=3 --max-time=3600
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
