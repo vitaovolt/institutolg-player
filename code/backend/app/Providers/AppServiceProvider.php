@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
         });
 
-        if (app()->environment('production') && blank(env('FRONTEND_URL'))) {
+        if (app()->environment('production') && blank(config('app.frontend_url'))) {
             throw new \RuntimeException('FRONTEND_URL é obrigatório em production (CORS).');
         }
 

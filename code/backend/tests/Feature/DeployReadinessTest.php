@@ -40,6 +40,12 @@ class DeployReadinessTest extends TestCase
         $this->assertSame('local', config('filesystems.disks.aulas.driver'));
     }
 
+    public function test_config_app_expoe_frontend_url(): void
+    {
+        $app = File::get(base_path('config/app.php'));
+        $this->assertStringContainsString("'frontend_url'", $app);
+    }
+
     public function test_artefatos_de_deploy_existem_na_raiz(): void
     {
         $root = dirname(base_path(), 2);
@@ -49,6 +55,7 @@ class DeployReadinessTest extends TestCase
         $this->assertFileExists($root.'/docs/DEPLOY.md');
         $this->assertFileExists($root.'/deploy/nginx/institutolg-player.conf');
         $this->assertFileExists($root.'/deploy/systemd/institutolg-player-queue.service');
+        $this->assertFileExists($root.'/deploy/scripts/provision-ec2.sh');
     }
 
     public function test_deploy_yml_e_self_hosted_sem_ssh_inbound(): void
