@@ -107,4 +107,17 @@ class DeployReadinessTest extends TestCase
 
         $this->assertStringContainsString('trustProxies', $boot);
     }
+
+    public function test_phpunit_xml_so_aponta_pastas_que_existem(): void
+    {
+        $xml = simplexml_load_file(base_path('phpunit.xml'));
+        $this->assertNotFalse($xml);
+
+        foreach ($xml->testsuites->testsuite as $suite) {
+            foreach ($suite->directory as $dir) {
+                $path = base_path((string) $dir);
+                $this->assertDirectoryExists($path, 'phpunit.xml aponta para pasta inexistente: '.$path);
+            }
+        }
+    }
 }
