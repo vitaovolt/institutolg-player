@@ -105,7 +105,10 @@ php artisan optimize:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
+sudo systemctl enable --now postgresql@15-main 2>/dev/null || sudo systemctl enable --now postgresql
 sudo chown -R ubuntu:www-data "$ROOT"
+sudo find "$ROOT" -type d -exec chmod 775 {} \;
+sudo find "$ROOT" -type f -exec chmod 664 {} \;
 sudo chmod -R 775 "$BE/storage" "$BE/bootstrap/cache"
 sudo chmod 640 "$BE/.env"
 sudo chmod +x "$BE/artisan"

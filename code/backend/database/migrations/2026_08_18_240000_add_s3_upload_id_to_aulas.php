@@ -9,14 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('aulas', function (Blueprint $table) {
-            $table->string('chave_capa', 2048)->nullable()->after('chave_play');
+            $table->string('s3_upload_id', 512)->nullable()->after('token_upload');
         });
     }
 
     public function down(): void
     {
         Schema::table('aulas', function (Blueprint $table) {
-            $table->dropColumn('chave_capa');
+            $table->dropColumn('s3_upload_id');
         });
     }
 };

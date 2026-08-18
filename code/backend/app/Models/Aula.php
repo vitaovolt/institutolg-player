@@ -32,6 +32,7 @@ class Aula extends Model
         'mensagem_erro',
         'chave_idempotencia',
         'token_upload',
+        's3_upload_id',
         'chave_arquivo',
         'chave_play',
         'chave_capa',
@@ -40,6 +41,7 @@ class Aula extends Model
 
     protected $hidden = [
         'token_upload',
+        's3_upload_id',
         'chave_arquivo',
         'chave_play',
         'chave_capa',

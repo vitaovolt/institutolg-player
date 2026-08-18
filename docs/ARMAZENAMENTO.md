@@ -18,7 +18,7 @@ Se a cópia falhar, a aula **pode continuar assistível**. Os dois status no pai
 | Player que cobra **por minuto/visualização** | O cliente recusou fatura que sobe com play |
 | Armazenamento que cobra **banda na saída** como origem do play | A mensalidade não inclui GB assistido |
 | Mais espaço no Drive do Instituto | Eles já têm 24 TB; Drive **não** é o player |
-| Subir o arquivo de **edição** (~45 GB) | Painel só aceita **export MP4** |
+| Subir o arquivo de **edição** (~45 GB) | Painel aceita export MP4 de **até 35 GB**. O projeto do editor continua grande demais |
 
 Local hoje: disco do Laravel + cópia “fake” (arquivo numa pasta local). Produção **não** pode ir ao ar assim: o MP4 ficaria no disco da EC2.
 
@@ -69,7 +69,7 @@ No bucket → **Settings** → **CORS policy** (JSON). Troque o domínio:
 [
   {
     "AllowedOrigins": ["https://institutolgplayer.educraft.com.br"],
-    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedMethods": ["GET", "HEAD", "PUT", "POST"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["Content-Length", "Content-Type", "ETag"],
     "MaxAgeSeconds": 3600
@@ -78,6 +78,8 @@ No bucket → **Settings** → **CORS policy** (JSON). Troque o domínio:
 ```
 
 Em local (só se for testar objeto de verdade no PC): inclua `http://127.0.0.1:8000` e `http://localhost:5173`.
+
+MP4 grande (até 35 GB): o navegador faz PUT **direto no bucket** (partes). Sem `PUT`/`POST` no CORS o envio falha. `ExposeHeaders` precisa de `ETag`.
 
 ### A4. Colar no `.env` da API (`code/backend/.env` — produção)
 
@@ -113,6 +115,21 @@ Storage::disk('aulas')->temporaryUrl('ping.txt', now()->addMinutes(5));
 A URL temporária deve abrir o `ok` no navegador. Apague o ping: `Storage::disk('aulas')->delete('ping.txt');`
 
 No player: o `<video src>` aponta para essa URL assinada (não para o disco da EC2).
+
+### A6. Árvore de pastas (vídeo e capa)
+
+Ao enviar, o sistema grava **curso → turma → disciplina → arquivo**. A capa fica na **mesma pasta** da disciplina, ao lado do vídeo.
+
+No objeto do play isso é o próprio caminho da chave (slug sem acento). O PUT já “cria” o prefixo — não há pasta vazia para criar antes.
+
+Exemplo:
+
+```
+pos-graduacao-em-saude/turma-2026-a/cardiologia/aula-04-novo-tema.mp4
+pos-graduacao-em-saude/turma-2026-a/cardiologia/aula-04-novo-tema_capa.png
+```
+
+No Drive (cópia) as pastas usam o **nome cadastrado**. Se a pasta já existe, reusa; se não, cria. Vídeo e capa entram na pasta da disciplina.
 
 ---
 
@@ -171,7 +188,7 @@ Reinicie o worker da fila.
 
 1. No painel, envie um MP4 **pequeno** e espere **Pronta**.
 2. Status da cópia deve ir para **Ok**.
-3. Abra a pasta no Drive: o arquivo aparece com o título da aula.
+3. Abra a pasta no Drive: deve existir **Curso → Turma → Disciplina**; o MP4 e a capa (se houver) ficam dentro da disciplina, com o título da aula.
 
 Se a cópia der erro e a aula estiver Pronta: o play está ok; use **Tentar de novo** na cópia. Causas típicas: pasta não compartilhada com o e-mail da conta de serviço, Drive API desligada, JSON no path errado.
 

@@ -221,7 +221,7 @@ export default function EnviarAulaPage() {
         {disciplina.nome}
       </h1>
       <p className="mt-2 text-[var(--brand-muted)]">
-        {cursoNome} · {turmaNome}. Só o export MP4 da aula pronta — não o arquivo de edição.
+        {cursoNome} · {turmaNome}. Só o export MP4 da aula pronta — até 35 GB. Não envie o arquivo de edição do programa.
         Depois do envio você volta à biblioteca desta turma.
       </p>
 

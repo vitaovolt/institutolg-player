@@ -4,8 +4,9 @@ return [
     'mensalidade_painel' => 287.00,
     'preco_aula_publicada' => 3.80,
     'max_logins_painel' => 5,
-    // Export da aula pronta — não o arquivo de edição (~45 GB).
-    'upload_max_bytes' => (int) env('BIBLIOTECA_UPLOAD_MAX_BYTES', 2 * 1024 * 1024 * 1024),
+    // Export MP4 (não o projeto de edição ~45 GB). 35 GB exige PUT por partes no objeto — não pelo PHP.
+    'upload_max_bytes' => (int) env('BIBLIOTECA_UPLOAD_MAX_BYTES', 35 * 1024 * 1024 * 1024),
+    'upload_part_bytes' => (int) env('BIBLIOTECA_UPLOAD_PART_BYTES', 100 * 1024 * 1024),
     'upload_extensoes' => ['mp4'],
     'upload_mimes' => ['video/mp4'],
     'disk_aulas' => env('BIBLIOTECA_DISK_AULAS', 'aulas'),

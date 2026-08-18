@@ -6,6 +6,7 @@ use App\Jobs\CopiarAulaParaDriveJob;
 use App\Jobs\PrepararVersaoDaAulaJob;
 use App\Models\Aula;
 use App\Services\Integrations\ClientePastaDrive;
+use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -37,7 +38,25 @@ class CopiaDriveTest extends TestCase
             'status_preparo' => 'pronta',
         ]);
         Storage::disk((string) config('biblioteca.disk_drive'))
-            ->assertExists('copias/'.$aula->id.'/'.$aula->token_publico.'.mp4');
+            ->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->fresh()->disciplina, (string) $aula->titulo));
+    }
+
+    public function test_job_grava_capa_na_mesma_arvore_da_disciplina(): void
+    {
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create([
+            'status_drive' => 'pendente',
+            'titulo' => 'Aula com capa',
+        ]));
+        $capa = CaminhoDaBiblioteca::chaveCapa($aula, 'png');
+        Storage::disk((string) config('biblioteca.disk_aulas'))->put($capa, 'png-bytes');
+        $aula->update(['chave_capa' => $capa]);
+
+        (new CopiarAulaParaDriveJob($aula->id))->handle(app(ClientePastaDrive::class));
+
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->fresh()->disciplina, (string) $aula->titulo));
+        $drive->assertExists($capa);
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'ok']);
     }
 
     public function test_falha_http_marca_erro_sem_derrubar_o_play(): void
@@ -102,10 +121,27 @@ class CopiaDriveTest extends TestCase
             'biblioteca.drive.service_account_path' => $json,
             'biblioteca.drive.folder_id' => 'pasta-piloto',
         ]);
-        Http::fake([
-            'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'tok-drive'], 200),
-            'https://www.googleapis.com/upload/drive/v3/*' => Http::response(['id' => 'arq-drive-1'], 200),
-        ]);
+        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+            if ($request->url() === 'https://oauth2.googleapis.com/token') {
+                return Http::response(['access_token' => 'tok-drive'], 200);
+            }
+            if (str_contains($request->url(), 'uploadType=resumable')) {
+                return Http::response('', 200, [
+                    'Location' => 'https://www.googleapis.com/upload/drive/v3/files?upload_id=abc',
+                ]);
+            }
+            if (str_contains($request->url(), 'upload_id=abc')) {
+                return Http::response(['id' => 'arq-drive-1'], 200);
+            }
+            if (str_contains($request->url(), 'www.googleapis.com/drive/v3/files') && $request->method() === 'GET') {
+                return Http::response(['files' => []], 200);
+            }
+            if (str_contains($request->url(), 'www.googleapis.com/drive/v3/files') && $request->method() === 'POST') {
+                return Http::response(['id' => 'pasta-criada'], 200);
+            }
+
+            return Http::response(['message' => 'inesperado'], 500);
+        });
 
         $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'Cópia Google']));
         $id = app(ClientePastaDrive::class)->enviarCopia($aula, ValidarExportMp4::amostraValida());
@@ -113,10 +149,20 @@ class CopiaDriveTest extends TestCase
         $this->assertSame('arq-drive-1', $id);
         Http::assertSent(fn ($request) => $request->url() === 'https://oauth2.googleapis.com/token');
         Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'https://www.googleapis.com/upload/drive/v3/files')
+            return str_contains($request->url(), 'uploadType=resumable')
                 && $request->hasHeader('Authorization', 'Bearer tok-drive')
+                && str_contains($request->body(), 'pasta-criada');
+        });
+        Http::assertSent(function ($request) {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), 'drive/v3/files?supportsAllDrives=true')
                 && str_contains($request->body(), 'pasta-piloto');
         });
+        Http::assertSent(function ($request) {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), 'drive/v3/files?supportsAllDrives=true')
+                && ! str_contains($request->url(), 'upload');
+        }, 3);
         @unlink($json);
     }
 

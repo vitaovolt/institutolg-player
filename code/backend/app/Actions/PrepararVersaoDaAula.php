@@ -6,7 +6,6 @@ use App\Jobs\CopiarAulaParaDriveJob;
 use App\Models\Aula;
 use App\Support\ValidarExportMp4;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class PrepararVersaoDaAula
 {
@@ -28,9 +27,13 @@ class PrepararVersaoDaAula
             return $aula->fresh();
         }
 
-        $origem = $disk->get($aula->chave_arquivo);
+        $stream = $disk->readStream($aula->chave_arquivo);
+        $header = $stream ? (string) fread($stream, 32) : '';
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
 
-        if (! ValidarExportMp4::pareceMp4($origem)) {
+        if (! ValidarExportMp4::pareceMp4($header)) {
             $aula->update([
                 'status_preparo' => 'erro',
                 'mensagem_erro' => ValidarExportMp4::mensagemRecusa(),
@@ -40,8 +43,7 @@ class PrepararVersaoDaAula
         }
 
         $playAnterior = $aula->chave_play;
-        $play = 'play/'.$aula->id.'/'.(string) Str::uuid().'.mp4';
-        $disk->put($play, $origem);
+        $play = $aula->chave_arquivo;
 
         $aula->update([
             'chave_play' => $play,

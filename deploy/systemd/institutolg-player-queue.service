@@ -8,7 +8,7 @@ Group=www-data
 Restart=always
 RestartSec=3
 WorkingDirectory=/var/www/institutolg-player/code/backend
-ExecStart=/usr/bin/php artisan queue:work database --queue=biblioteca --sleep=3 --tries=3 --max-time=3600
+ExecStart=/usr/bin/php artisan queue:work database --queue=biblioteca --sleep=3 --tries=3 --timeout=43200 --max-time=43200
 StandardOutput=journal
 StandardError=journal
 

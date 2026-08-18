@@ -1,7 +1,75 @@
-import { concluirEnvio, fetchAula, iniciarEnvio, iniciarSubstituicao, putArquivoEnvio } from '../api/aulas'
+import {
+  concluirEnvio,
+  completarPartesEnvio,
+  fetchAula,
+  iniciarEnvio,
+  iniciarSubstituicao,
+  pedirUrlDaParte,
+  putArquivoEnvio,
+} from '../api/aulas'
 
 function esperar(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function tokenDoUploadPath(uploadPath) {
+  const trecho = String(uploadPath || '').replace(/^\//, '')
+  const match = trecho.match(/^envios\/([^/]+)/)
+  return match ? match[1] : ''
+}
+
+async function enviarPorPartes(uploadPath, file, partSize, onProgress, signal) {
+  const token = tokenDoUploadPath(uploadPath)
+  if (!token) {
+    throw new Error('Não foi possível iniciar o envio do arquivo.')
+  }
+  const tamanhoParte = Math.max(5 * 1024 * 1024, Number(partSize) || 100 * 1024 * 1024)
+  const total = file.size
+  const nPartes = Math.max(1, Math.ceil(total / tamanhoParte))
+  const parts = []
+  let enviado = 0
+
+  for (let n = 1; n <= nPartes; n += 1) {
+    if (signal?.aborted) {
+      throw new DOMException('Envio cancelado.', 'AbortError')
+    }
+    const inicio = (n - 1) * tamanhoParte
+    const blob = file.slice(inicio, Math.min(inicio + tamanhoParte, total))
+    const pedido = await pedirUrlDaParte(token, n)
+    const url = pedido.data?.url
+    if (!url) {
+      throw new Error('Não foi possível obter o destino da parte do arquivo.')
+    }
+    const resposta = await fetch(url, {
+      method: 'PUT',
+      body: blob,
+      signal,
+    })
+    if (!resposta.ok) {
+      throw new Error('Falha ao enviar uma parte do arquivo. Tente de novo.')
+    }
+    const etag = resposta.headers.get('ETag') || resposta.headers.get('etag')
+    if (!etag) {
+      throw new Error('O destino do arquivo não confirmou a parte. Tente de novo.')
+    }
+    parts.push({ part_number: n, etag })
+    enviado += blob.size
+    if (onProgress) {
+      onProgress(Math.round((enviado / total) * 100))
+    }
+  }
+
+  await completarPartesEnvio(token, parts)
+}
+
+async function enviarArquivo(inicio, file, onProgress, signal) {
+  const uploadPath = inicio.data.upload_path
+  if (!uploadPath) return
+  if (inicio.data.upload_method === 'multipart') {
+    await enviarPorPartes(uploadPath, file, inicio.data.part_size, onProgress, signal)
+    return
+  }
+  await putArquivoEnvio(uploadPath, file, onProgress, signal)
 }
 
 export async function enviarAulaCompleto({
@@ -23,11 +91,7 @@ export async function enviarAulaCompleto({
   )
 
   const aulaId = iniciado.data.aula.id
-  const uploadPath = iniciado.data.upload_path
-
-  if (uploadPath) {
-    await putArquivoEnvio(uploadPath, file, onProgress, signal)
-  }
+  await enviarArquivo(iniciado, file, onProgress, signal)
 
   const concluido = await concluirEnvio(aulaId)
   return { aulaId, aula: concluido.data }
@@ -35,12 +99,8 @@ export async function enviarAulaCompleto({
 
 export async function substituirAulaCompleto({ aulaId, file, onProgress, signal }) {
   const iniciado = await iniciarSubstituicao(aulaId)
-  const uploadPath = iniciado.data.upload_path
   const id = iniciado.data.aula.id
-
-  if (uploadPath) {
-    await putArquivoEnvio(uploadPath, file, onProgress, signal)
-  }
+  await enviarArquivo(iniciado, file, onProgress, signal)
 
   const concluido = await concluirEnvio(id)
   return { aulaId: id, aula: concluido.data }

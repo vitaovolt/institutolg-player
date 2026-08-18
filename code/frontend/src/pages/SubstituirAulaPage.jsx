@@ -102,7 +102,7 @@ export default function SubstituirAulaPage() {
       </p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">{aula?.titulo || 'Aula'}</h1>
       <p className="mt-2 text-[var(--brand-muted)]">
-        O HTML colado na Eduq não muda. Envie o novo export MP4 da aula pronta.
+        O HTML colado na Eduq não muda. Envie o novo export MP4 da aula pronta (até 35 GB).
       </p>
 
       {error && !aula ? (

@@ -3,9 +3,9 @@
 namespace App\Actions;
 
 use App\Models\Aula;
+use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarFotoCapa;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class SalvarCapaDaAula
@@ -22,7 +22,7 @@ class SalvarCapaDaAula
 
         $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
         $anterior = $aula->chave_capa;
-        $path = 'capas/'.$aula->id.'/'.(string) Str::uuid().'.'.ValidarFotoCapa::extensao($binario);
+        $path = CaminhoDaBiblioteca::chaveCapa($aula, ValidarFotoCapa::extensao($binario));
         $disk->put($path, $binario);
 
         $aula->update(['chave_capa' => $path]);

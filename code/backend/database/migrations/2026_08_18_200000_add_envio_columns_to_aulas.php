@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::table('aulas', function (Blueprint $table) {
             $table->string('chave_idempotencia', 36)->nullable()->after('mensagem_erro');
             $table->string('token_upload', 64)->nullable()->after('chave_idempotencia');
-            $table->string('chave_arquivo')->nullable()->after('token_upload');
-            $table->string('chave_play')->nullable()->after('chave_arquivo');
+            $table->string('chave_arquivo', 2048)->nullable()->after('token_upload');
+            $table->string('chave_play', 2048)->nullable()->after('chave_arquivo');
             $table->unsignedBigInteger('tamanho_bytes')->nullable()->after('chave_play');
 
             $table->unique('chave_idempotencia');

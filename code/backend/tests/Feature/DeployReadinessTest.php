@@ -22,7 +22,7 @@ class DeployReadinessTest extends TestCase
     {
         $env = File::get(base_path('.env.example'));
 
-        foreach (['APP_URL=', 'FRONTEND_URL=', 'DB_CONNECTION=pgsql', 'QUEUE_CONNECTION=', 'BIBLIOTECA_AULAS_DRIVER=', 'AWS_ENDPOINT=', 'BIBLIOTECA_DRIVE_FOLDER_ID='] as $needle) {
+        foreach (['APP_URL=', 'FRONTEND_URL=', 'DB_CONNECTION=pgsql', 'QUEUE_CONNECTION=', 'BIBLIOTECA_AULAS_DRIVER=', 'AWS_ENDPOINT=', 'BIBLIOTECA_DRIVE_FOLDER_ID=', 'BIBLIOTECA_UPLOAD_MAX_BYTES='] as $needle) {
             $this->assertStringContainsString($needle, $env);
         }
     }
@@ -46,6 +46,14 @@ class DeployReadinessTest extends TestCase
         $this->assertStringContainsString("'frontend_url'", $app);
     }
 
+    public function test_teto_de_upload_e_35gb_com_partes(): void
+    {
+        $this->assertSame(35 * 1024 * 1024 * 1024, (int) config('biblioteca.upload_max_bytes'));
+        $this->assertSame(100 * 1024 * 1024, (int) config('biblioteca.upload_part_bytes'));
+        $conf = File::get(base_path('config/biblioteca.php'));
+        $this->assertStringContainsString('upload_part_bytes', $conf);
+    }
+
     public function test_artefatos_de_deploy_existem_na_raiz(): void
     {
         $root = dirname(base_path(), 2);
@@ -64,6 +72,7 @@ class DeployReadinessTest extends TestCase
 
         $this->assertStringContainsString('self-hosted', $yml);
         $this->assertStringContainsString('institutolgplayer_github', $yml);
+        $this->assertStringContainsString('core.filemode false', $yml);
         $this->assertStringContainsString('institutolg-player-queue', $yml);
         $this->assertStringNotContainsString('SSH_HOST', $yml);
         $this->assertStringNotContainsString('SSH_USER', $yml);
@@ -78,7 +87,7 @@ class DeployReadinessTest extends TestCase
         $this->assertStringContainsString('location ^~ /assistir', $conf);
         $this->assertStringContainsString('location ^~ /eduq', $conf);
         $this->assertStringContainsString('location ^~ /capa', $conf);
-        $this->assertStringContainsString('client_max_body_size 2048M', $conf);
+        $this->assertStringContainsString('client_max_body_size 35g', $conf);
         $this->assertStringContainsString('code/backend/public/index.php', $conf);
     }
 
@@ -88,6 +97,7 @@ class DeployReadinessTest extends TestCase
 
         $this->assertStringContainsString('--queue=biblioteca', $unit);
         $this->assertStringContainsString('queue:work', $unit);
+        $this->assertStringContainsString('--timeout=43200', $unit);
         $this->assertStringNotContainsString('queue:work database --sleep', $unit);
     }
 

@@ -5,7 +5,7 @@ info:
   description: |
     API do painel (coordenação). Aluno não usa esta API — assiste na Eduq.
     Health: 200 com checks.database=ok; 503 se o banco cair (smoke de deploy).
-    Auth Sanctum Bearer + Policy por recurso (conta `ativo`). Envio: PUT `/envios/{token}` (sem Bearer).
+    Auth Sanctum Bearer + Policy por recurso (conta `ativo`). Envio: PUT `/envios/{token}` (local) ou partes no objeto (produção, até 35 GB). Sem Bearer no binário.
     Player público (web, não JSON): `GET /assistir/{token_publico}` (iframe) e mídia com URL assinada temporária.
     Cópia para a pasta compartilhada: job na fila `biblioteca` (aula pode estar Pronta com cópia pendente).
     Rotas privadas: 401 sem token; 403 se a conta não puder gerir o acervo.
@@ -318,7 +318,7 @@ paths:
       - $ref: '#/components/parameters/DisciplinaId'
     post:
       operationId: iniciarEnvioAula
-      summary: Inicia envio (título + URL de PUT). Header Idempotency-Key evita aula duplicada.
+      summary: Inicia envio (título + PUT único ou partes no objeto). Header Idempotency-Key evita aula duplicada.
       tags: [Envios]
       parameters:
         - name: Idempotency-Key
@@ -344,7 +344,7 @@ paths:
                   type: integer
       responses:
         '201':
-          description: Envio novo (upload_path para PUT)
+          description: Envio novo (upload_path; upload_method PUT ou multipart até 35 GB)
         '200':
           description: Mesma chave — retoma o envio
         '401':
@@ -377,6 +377,46 @@ paths:
           description: Token inválido ou envio já concluído
         '422':
           description: Não é MP4 / grande demais
+  /envios/{token}/partes:
+    post:
+      operationId: urlDaParteEnvio
+      summary: URL assinada de uma parte (produção, até 35 GB). Sem Bearer.
+      tags: [Envios]
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [part_number]
+              properties:
+                part_number:
+                  type: integer
+      responses:
+        '200':
+          description: url da parte
+  /envios/{token}/completar-multipart:
+    post:
+      operationId: completarPartesEnvio
+      summary: Fecha o envio por partes e valida o MP4
+      tags: [Envios]
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Arquivo gravado
   /aulas/{aula}/envios/concluir:
     parameters:
       - $ref: '#/components/parameters/AulaId'

@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\Aula;
+use App\Support\CaminhoDaBiblioteca;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -23,6 +24,7 @@ class IniciarSubstituicaoDaAula
         }
 
         $tokenPublico = $aula->token_publico;
+        $aula->loadMissing('disciplina.turma.curso');
 
         $aula->update([
             'status_preparo' => 'enviando',
@@ -30,7 +32,7 @@ class IniciarSubstituicaoDaAula
             'mensagem_erro' => null,
             'chave_idempotencia' => (string) Str::uuid(),
             'token_upload' => Str::random(64),
-            'chave_arquivo' => 'origens/'.$aula->disciplina_id.'/'.(string) Str::uuid().'.mp4',
+            'chave_arquivo' => CaminhoDaBiblioteca::chaveVideo($aula->disciplina, (string) $aula->titulo),
             'token_publico' => $tokenPublico,
         ]);
 

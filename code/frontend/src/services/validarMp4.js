@@ -1,9 +1,9 @@
-const MAX_BYTES = 2 * 1024 * 1024 * 1024
+export const MAX_BYTES = 35 * 1024 * 1024 * 1024
 const EXTENSOES = ['.mp4']
 const MIMES_OK = ['', 'video/mp4']
 
 export const MSG_MP4 = 'Tipo de arquivo não permitido, são permitidos somente arquivos MP4. Envie o export MP4 da aula pronta já editada.'
-export const MSG_GRANDE = 'O arquivo é grande demais. Envie o export MP4 da aula pronta (máximo 2 GB).'
+export const MSG_GRANDE = 'O arquivo é grande demais. Envie o export MP4 da aula pronta (máximo 35 GB).'
 
 export function validarArquivoNoCliente(file) {
   if (!file) {

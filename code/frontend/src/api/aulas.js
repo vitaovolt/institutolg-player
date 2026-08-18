@@ -20,7 +20,7 @@ export async function iniciarEnvio(disciplinaId, payload, chaveIdempotencia) {
 export async function putArquivoEnvio(uploadPath, file, onProgress, signal) {
   const { data } = await client.put(String(uploadPath).replace(/^\//, ''), file, {
     headers: { 'Content-Type': file.type || 'video/mp4' },
-    timeout: 10 * 60 * 1000,
+    timeout: 12 * 60 * 60 * 1000,
     signal,
     onUploadProgress: (event) => {
       if (!event.total || !onProgress) return
@@ -28,6 +28,16 @@ export async function putArquivoEnvio(uploadPath, file, onProgress, signal) {
     },
     transformRequest: [(body) => body],
   })
+  return data
+}
+
+export async function pedirUrlDaParte(token, partNumber) {
+  const { data } = await client.post(`envios/${token}/partes`, { part_number: partNumber })
+  return data
+}
+
+export async function completarPartesEnvio(token, parts) {
+  const { data } = await client.post(`envios/${token}/completar-multipart`, { parts })
   return data
 }
 

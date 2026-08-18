@@ -18,9 +18,11 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
     public int $tries = 3;
 
     /** @var list<int> */
-    public array $backoff = [5, 15, 30];
+    public array $backoff = [60, 300, 900];
 
-    public int $uniqueFor = 600;
+    public int $timeout = 43200;
+
+    public int $uniqueFor = 43200;
 
     public function __construct(public int $aulaId)
     {
@@ -34,8 +36,8 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(ClientePastaDrive $cliente): void
     {
-        Cache::lock('aula-drive:'.$this->aulaId, 120)->block(10, function () use ($cliente): void {
-            $aula = Aula::query()->find($this->aulaId);
+        Cache::lock('aula-drive:'.$this->aulaId, 43200)->block(10, function () use ($cliente): void {
+            $aula = Aula::query()->with(['disciplina.turma.curso'])->find($this->aulaId);
 
             if ($aula === null || ! $aula->estaProntaParaAssistir()) {
                 return;
@@ -52,8 +54,20 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
             $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
 
             try {
-                $conteudo = $disk->get($aula->chave_play);
-                $cliente->enviarCopia($aula, $conteudo);
+                $stream = $disk->readStream($aula->chave_play);
+                if ($stream === false || $stream === null) {
+                    throw new \RuntimeException('Não foi possível ler o arquivo para a cópia.');
+                }
+                $tamanho = (int) $disk->size($aula->chave_play);
+                $cliente->enviarCopia($aula, $stream, $tamanho, 'video', 'mp4');
+
+                if (filled($aula->chave_capa) && $disk->exists($aula->chave_capa)) {
+                    $capa = $disk->readStream($aula->chave_capa);
+                    if ($capa !== false && $capa !== null) {
+                        $ext = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
+                        $cliente->enviarCopia($aula, $capa, (int) $disk->size($aula->chave_capa), 'capa', $ext);
+                    }
+                }
                 $aula->update([
                     'status_drive' => 'ok',
                     'mensagem_erro' => null,

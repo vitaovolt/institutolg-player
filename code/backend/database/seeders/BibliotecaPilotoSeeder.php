@@ -6,6 +6,7 @@ use App\Models\Aula;
 use App\Models\Curso;
 use App\Models\Disciplina;
 use App\Models\Turma;
+use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
@@ -72,8 +73,9 @@ class BibliotecaPilotoSeeder extends Seeder
             $aula->update(['chave_play' => $play]);
         }
 
+        $introducao->load('disciplina.turma.curso');
         Storage::disk((string) config('biblioteca.disk_drive'))->put(
-            'copias/'.$introducao->id.'/'.$introducao->token_publico.'.mp4',
+            CaminhoDaBiblioteca::chaveVideo($introducao->disciplina, (string) $introducao->titulo),
             $mp4,
         );
     }

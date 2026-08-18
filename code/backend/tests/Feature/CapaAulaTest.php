@@ -43,6 +43,10 @@ class CapaAulaTest extends TestCase
 
         $aula = $aula->fresh();
         $this->assertNotEmpty($aula->chave_capa);
+        $this->assertSame(
+            \App\Support\CaminhoDaBiblioteca::chaveCapa($aula, 'png'),
+            $aula->chave_capa
+        );
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_capa);
 
         $this->get('/capa/'.$aula->token_publico)

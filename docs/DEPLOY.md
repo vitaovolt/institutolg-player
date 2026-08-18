@@ -110,14 +110,16 @@ SPA build: `VITE_API_URL=/api/v1` (mesmo domínio via Nginx).
 
 **Play + cópia Drive:** não deixe `BIBLIOTECA_AULAS_DRIVER=local` nem `BIBLIOTECA_DRIVE_FAKE=true` em produção. Siga [ARMAZENAMENTO.md](ARMAZENAMENTO.md) **antes** de apontar o DNS.
 
-PHP-FPM (upload MP4 até 2 GB) — em `/etc/php/8.2/fpm/php.ini` (ou pool):
+PHP-FPM **não** recebe o MP4 de 35 GB (a EC2 tem ~2 GB de RAM). O painel sobe o arquivo **por partes direto no objeto**. Memória do PHP neste host:
 
 ```
-memory_limit = 2048M
+memory_limit = 512M
 max_execution_time = 3600
 ```
 
-Nginx já manda `client_max_body_size 2048M` no vhost.
+Nginx `client_max_body_size 35g` cobre PUT único **só em local/dev**. Em produção com proxy, o binário grande não passa pelo origin.
+
+Worker da cópia (arquivo grande): `--timeout=43200 --max-time=43200`.
 
 ## Artefatos no repo
 

@@ -9,7 +9,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ReceberArquivoDoEnvio
 {
-    public function handle(string $token, string $binario): Aula
+    public function handle(string $token, mixed $entrada): Aula
     {
         $aula = Aula::query()->where('token_upload', $token)->first();
 
@@ -21,6 +21,17 @@ class ReceberArquivoDoEnvio
             throw new HttpException(409, 'Este envio não aceita mais arquivo.');
         }
 
+        if (is_resource($entrada)) {
+            $this->gravarStream($aula, $entrada);
+        } else {
+            $this->gravarString($aula, (string) $entrada);
+        }
+
+        return $aula->fresh();
+    }
+
+    private function gravarString(Aula $aula, string $binario): void
+    {
         if ($binario === '') {
             throw new HttpException(422, ValidarExportMp4::mensagemRecusa());
         }
@@ -42,7 +53,42 @@ class ReceberArquivoDoEnvio
             'tamanho_bytes' => strlen($binario),
             'mensagem_erro' => null,
         ]);
+    }
 
-        return $aula->fresh();
+    /**
+     * @param  resource  $entrada
+     */
+    private function gravarStream(Aula $aula, $entrada): void
+    {
+        $header = fread($entrada, 32);
+
+        if ($header === false || $header === '') {
+            throw new HttpException(422, ValidarExportMp4::mensagemRecusa());
+        }
+
+        if (! ValidarExportMp4::pareceMp4($header)) {
+            throw new HttpException(422, ValidarExportMp4::mensagemRecusa());
+        }
+
+        $tmp = fopen('php://temp/maxmemory:8388608', 'w+b');
+        fwrite($tmp, $header);
+        stream_copy_to_stream($entrada, $tmp);
+        $tamanho = (int) ftell($tmp);
+        $max = (int) config('biblioteca.upload_max_bytes');
+
+        if ($tamanho > $max) {
+            fclose($tmp);
+            throw new HttpException(422, ValidarExportMp4::mensagemGrandeDemais());
+        }
+
+        rewind($tmp);
+        $disk = (string) config('biblioteca.disk_aulas');
+        Storage::disk($disk)->writeStream($aula->chave_arquivo, $tmp);
+        fclose($tmp);
+
+        $aula->update([
+            'tamanho_bytes' => $tamanho,
+            'mensagem_erro' => null,
+        ]);
     }
 }

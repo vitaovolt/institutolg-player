@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\PrepararVersaoDaAulaJob;
 use App\Models\Aula;
 use App\Models\Disciplina;
+use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Database\Seeders\BibliotecaPilotoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +85,10 @@ class EnvioAulaTest extends TestCase
         $aula = Aula::query()->findOrFail($aulaId);
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
         $this->assertSame(strlen($mp4), $aula->tamanho_bytes);
+        $this->assertSame(
+            CaminhoDaBiblioteca::chaveVideo($disciplina->load('turma.curso'), 'Aula 04 — Novo tema'),
+            $aula->chave_arquivo
+        );
 
         Queue::fake();
 
@@ -127,6 +132,7 @@ class EnvioAulaTest extends TestCase
         $aula = Aula::query()->findOrFail($aulaId);
         $this->assertSame('pronta', $aula->status_preparo);
         $this->assertNotEmpty($aula->chave_play);
+        $this->assertSame($aula->chave_arquivo, $aula->chave_play);
         $this->assertNull($aula->token_upload);
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_play);
 
@@ -251,5 +257,61 @@ class EnvioAulaTest extends TestCase
         $this->artisan('list')
             ->expectsOutputToContain('biblioteca:fila')
             ->assertSuccessful();
+    }
+
+    public function test_teto_padrao_e_35gb(): void
+    {
+        $this->assertSame(35 * 1024 * 1024 * 1024, (int) config('biblioteca.upload_max_bytes'));
+        $this->comoCoordenacao();
+        $disciplina = Disciplina::factory()->create();
+
+        $this->postJson("/api/v1/disciplinas/{$disciplina->id}/envios", [
+            'titulo' => 'No teto',
+            'chave_idempotencia' => (string) Str::uuid(),
+            'tamanho_bytes' => 35 * 1024 * 1024 * 1024,
+        ])->assertCreated();
+
+        $this->postJson("/api/v1/disciplinas/{$disciplina->id}/envios", [
+            'titulo' => 'Acima do teto',
+            'chave_idempotencia' => (string) Str::uuid(),
+            'tamanho_bytes' => 35 * 1024 * 1024 * 1024 + 1,
+        ])->assertStatus(422);
+
+        $this->assertDatabaseMissing('aulas', ['titulo' => 'Acima do teto']);
+    }
+
+    public function test_multipart_grava_quando_o_disco_e_objeto(): void
+    {
+        $this->comoCoordenacao();
+        config(['filesystems.disks.aulas.driver' => 's3']);
+        $this->mock(\App\Contracts\AssinadorDeUploadDireto::class, function ($mock): void {
+            $mock->shouldReceive('iniciar')->once()->andReturn('up-1');
+            $mock->shouldReceive('urlDaParte')->once()->andReturn('https://objeto.test/parte-1');
+            $mock->shouldReceive('completar')->once()->andReturnUsing(function (Aula $aula, array $partes): void {
+                Storage::disk((string) config('biblioteca.disk_aulas'))
+                    ->put($aula->chave_arquivo, ValidarExportMp4::amostraValida());
+            });
+        });
+
+        $disciplina = Disciplina::factory()->create();
+        $iniciar = $this->postJson("/api/v1/disciplinas/{$disciplina->id}/envios", [
+            'titulo' => 'Aula por partes',
+            'chave_idempotencia' => (string) Str::uuid(),
+        ])->assertCreated()
+            ->assertJsonPath('data.upload_method', 'multipart')
+            ->assertJsonPath('data.part_size', 100 * 1024 * 1024);
+
+        $token = basename((string) $iniciar->json('data.upload_path'));
+        $this->postJson("/api/v1/envios/{$token}/partes", ['part_number' => 1])
+            ->assertOk()
+            ->assertJsonPath('data.url', 'https://objeto.test/parte-1');
+
+        $this->postJson("/api/v1/envios/{$token}/completar-multipart", [
+            'parts' => [['part_number' => 1, 'etag' => '"abc123"']],
+        ])->assertOk();
+
+        $aula = Aula::query()->findOrFail($iniciar->json('data.aula.id'));
+        Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
+        $this->assertSame(strlen(ValidarExportMp4::amostraValida()), $aula->tamanho_bytes);
     }
 }

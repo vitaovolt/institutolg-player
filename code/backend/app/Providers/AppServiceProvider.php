@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Contracts\AssinadorDeUploadDireto;
+use App\Services\AssinadorS3DeUploadDireto;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -12,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(AssinadorDeUploadDireto::class, AssinadorS3DeUploadDireto::class);
     }
 
     public function boot(): void
@@ -31,6 +33,14 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip());
+        });
+
+        RateLimiter::for('upload-partes', function (Request $request) {
+            if (app()->environment('local', 'testing')) {
+                return Limit::none();
+            }
+
+            return Limit::perMinute(1800)->by($request->ip());
         });
 
         if (app()->environment('production') && blank(config('app.frontend_url'))) {

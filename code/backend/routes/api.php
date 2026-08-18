@@ -18,6 +18,8 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::get('/health', HealthController::class);
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::put('/envios/{token}', [EnvioAulaController::class, 'receber'])->middleware('throttle:60,1');
+    Route::post('/envios/{token}/partes', [EnvioAulaController::class, 'parte'])->middleware('throttle:upload-partes');
+    Route::post('/envios/{token}/completar-multipart', [EnvioAulaController::class, 'completarPartes'])->middleware('throttle:60,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);

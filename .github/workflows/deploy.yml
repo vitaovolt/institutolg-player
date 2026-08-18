@@ -32,6 +32,7 @@ jobs:
 
           sudo chown -R "$(whoami):$(whoami)" .
           git config --global --add safe.directory "$DEPLOY_PATH"
+          git config core.filemode false
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
