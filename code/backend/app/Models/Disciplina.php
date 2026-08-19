@@ -16,6 +16,11 @@ class Disciplina extends Model
     protected $fillable = [
         'turma_id',
         'nome',
+        'drive_folder_id',
+    ];
+
+    protected $hidden = [
+        'drive_folder_id',
     ];
 
     public function scopeOrdenadasPorNome($query)

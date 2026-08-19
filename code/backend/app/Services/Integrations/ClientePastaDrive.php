@@ -3,8 +3,12 @@
 namespace App\Services\Integrations;
 
 use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\Disciplina;
+use App\Models\Turma;
 use App\Support\CaminhoDaBiblioteca;
 use App\Support\MoverArquivoDaBiblioteca;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -44,12 +48,55 @@ class ClientePastaDrive
         }
     }
 
+    /**
+     * Cria/atualiza pastas (curso → turma → disciplina) e o arquivo da aula.
+     * Com id salvo: só renomeia/move. Sem id: faz upload por stream.
+     *
+     * @param  resource|null  $streamVideo
+     * @param  resource|null  $streamCapa
+     */
+    public function sincronizarAula(
+        Aula $aula,
+        mixed $streamVideo = null,
+        ?int $tamanhoVideo = null,
+        mixed $streamCapa = null,
+        ?int $tamanhoCapa = null,
+        string $extCapa = 'jpg',
+    ): void {
+        $aula->loadMissing('disciplina.turma.curso');
+
+        try {
+            if (config('biblioteca.drive.fake')) {
+                $this->sincronizarNoDiscoFake($aula, $streamVideo, $streamCapa, $extCapa);
+
+                return;
+            }
+
+            if ($this->usaContaDeServico()) {
+                $token = $this->tokenDaContaDeServico();
+                $pastaId = $this->garantirArvore($aula, $token);
+                $this->sincronizarArquivoNaConta($aula, $token, $pastaId, $streamVideo, $tamanhoVideo, 'video', 'mp4');
+                if (filled($aula->chave_capa) && ($streamCapa !== null || filled($aula->drive_capa_file_id))) {
+                    $this->sincronizarArquivoNaConta($aula, $token, $pastaId, $streamCapa, $tamanhoCapa, 'capa', $extCapa);
+                }
+
+                return;
+            }
+
+            if ($streamVideo !== null) {
+                $this->enviarPorHttpGenerico($aula, $this->comoStream($streamVideo));
+            }
+        } finally {
+            foreach ([$streamVideo, $streamCapa] as $stream) {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+        }
+    }
+
     public function copiaAtiva(): bool
     {
-        if (filter_var(config('biblioteca.drive.pausado'), FILTER_VALIDATE_BOOLEAN)) {
-            return false;
-        }
-
         if (config('biblioteca.drive.fake')) {
             return true;
         }
@@ -264,10 +311,169 @@ class ClientePastaDrive
     {
         $aula->loadMissing('disciplina.turma.curso');
         $raiz = (string) config('biblioteca.drive.folder_id');
-        $curso = $this->garantirPasta($token, $raiz, (string) ($aula->disciplina?->turma?->curso?->nome ?: 'Curso'));
-        $turma = $this->garantirPasta($token, $curso, (string) ($aula->disciplina?->turma?->nome ?: 'Turma'));
+        $curso = $aula->disciplina->turma->curso;
+        $turma = $aula->disciplina->turma;
+        $disciplina = $aula->disciplina;
+        $cursoId = $this->alinharPasta($token, $curso, $raiz, (string) ($curso->nome ?: 'Curso'));
+        $turmaId = $this->alinharPasta($token, $turma, $cursoId, (string) ($turma->nome ?: 'Turma'));
 
-        return $this->garantirPasta($token, $turma, (string) ($aula->disciplina?->nome ?: 'Disciplina'));
+        return $this->alinharPasta($token, $disciplina, $turmaId, (string) ($disciplina->nome ?: 'Disciplina'));
+    }
+
+    private function alinharPasta(string $token, Curso|Turma|Disciplina $model, string $pai, string $nome): string
+    {
+        $nome = trim($nome) !== '' ? trim($nome) : 'Sem nome';
+        $salvo = (string) ($model->drive_folder_id ?? '');
+
+        if ($salvo !== '') {
+            $meta = $this->obterArquivo($token, $salvo);
+            if ($meta !== null && empty($meta['trashed'])) {
+                $this->alinharNomeEPai($token, $salvo, $meta, $nome, $pai);
+
+                return $salvo;
+            }
+        }
+
+        $id = $this->garantirPasta($token, $pai, $nome);
+        $this->persistirFolderId($model, $id);
+
+        return $id;
+    }
+
+    /**
+     * @return array{id?: string, name?: string, parents?: list<string>, trashed?: bool}|null
+     */
+    private function obterArquivo(string $token, string $id): ?array
+    {
+        $resposta = Http::timeout(15)
+            ->retry(3, 200)
+            ->withToken($token)
+            ->get('https://www.googleapis.com/drive/v3/files/'.$id, [
+                'fields' => 'id,name,parents,trashed',
+                'supportsAllDrives' => 'true',
+            ]);
+
+        if ($resposta->status() === 404) {
+            return null;
+        }
+
+        $resposta->throw();
+        $json = $resposta->json();
+        if (! is_array($json) || empty($json['id'])) {
+            return null;
+        }
+
+        return $json;
+    }
+
+    /**
+     * @param  array{id?: string, name?: string, parents?: list<string>}  $meta
+     */
+    private function alinharNomeEPai(string $token, string $id, array $meta, string $nome, string $pai): void
+    {
+        $query = 'supportsAllDrives=true';
+        $parents = $meta['parents'] ?? [];
+        if (! in_array($pai, $parents, true)) {
+            $query .= '&addParents='.rawurlencode($pai);
+            $sair = array_values(array_filter($parents, fn ($p) => $p !== $pai));
+            if ($sair !== []) {
+                $query .= '&removeParents='.rawurlencode(implode(',', $sair));
+            }
+        }
+
+        $body = [];
+        if (($meta['name'] ?? '') !== $nome) {
+            $body['name'] = $nome;
+        }
+
+        if ($body === [] && ! str_contains($query, 'addParents')) {
+            return;
+        }
+
+        Http::timeout((int) config('biblioteca.drive.timeout', 15))
+            ->withToken($token)
+            ->patch('https://www.googleapis.com/drive/v3/files/'.$id.'?'.$query, $body === [] ? new \stdClass : $body)
+            ->throw();
+    }
+
+    private function sincronizarNoDiscoFake(Aula $aula, mixed $streamVideo, mixed $streamCapa, string $extCapa): void
+    {
+        $curso = $aula->disciplina->turma->curso;
+        $turma = $aula->disciplina->turma;
+        $disciplina = $aula->disciplina;
+        $cursoId = CaminhoDaBiblioteca::segmento((string) $curso->nome);
+        $turmaId = $cursoId.'/'.CaminhoDaBiblioteca::segmento((string) $turma->nome);
+        $discId = $turmaId.'/'.CaminhoDaBiblioteca::segmento((string) $disciplina->nome);
+        $this->persistirFolderId($curso, $cursoId);
+        $this->persistirFolderId($turma, $turmaId);
+        $this->persistirFolderId($disciplina, $discId);
+
+        $this->sincronizarArquivoFake($aula, 'video', 'mp4', $streamVideo);
+        if (filled($aula->chave_capa) || $streamCapa !== null) {
+            $this->sincronizarArquivoFake($aula, 'capa', $extCapa, $streamCapa);
+        }
+    }
+
+    private function sincronizarArquivoFake(Aula $aula, string $tipo, string $extensao, mixed $stream): void
+    {
+        $path = $tipo === 'capa'
+            ? CaminhoDaBiblioteca::chaveCapa($aula, $extensao)
+            : CaminhoDaBiblioteca::chaveVideo($aula->disciplina, (string) $aula->titulo);
+        $campo = $tipo === 'capa' ? 'drive_capa_file_id' : 'drive_file_id';
+        $antigo = (string) ($aula->{$campo} ?? '');
+        $disk = Storage::disk((string) config('biblioteca.disk_drive'));
+
+        if (is_resource($stream)) {
+            $disk->writeStream($path, $stream);
+        } elseif ($antigo !== '' && $antigo !== $path) {
+            MoverArquivoDaBiblioteca::seExistir($disk, $antigo, $path);
+        }
+
+        $this->persistirFolderId($aula, $path, $campo);
+    }
+
+    /**
+     * @param  resource|null  $stream
+     */
+    private function sincronizarArquivoNaConta(
+        Aula $aula,
+        string $token,
+        string $pastaId,
+        mixed $stream,
+        ?int $tamanho,
+        string $tipo,
+        string $extensao,
+    ): void {
+        $campo = $tipo === 'capa' ? 'drive_capa_file_id' : 'drive_file_id';
+        $salvo = (string) ($aula->{$campo} ?? '');
+        $nome = CaminhoDaBiblioteca::nomeArquivoDrive($aula, $tipo, $extensao);
+
+        if ($salvo !== '' && $stream === null) {
+            $meta = $this->obterArquivo($token, $salvo);
+            if ($meta !== null && empty($meta['trashed'])) {
+                $this->alinharNomeEPai($token, $salvo, $meta, $nome, $pastaId);
+
+                return;
+            }
+        }
+
+        if ($stream === null) {
+            throw new RuntimeException('Não foi possível localizar o arquivo na pasta compartilhada.');
+        }
+
+        $id = $this->enviarPelaContaDeServico($aula, $this->comoStream($stream), $tamanho, $tipo, $extensao);
+        if ($id !== '' && $id !== 'ok') {
+            $this->persistirFolderId($aula, $id, $campo);
+        }
+    }
+
+    private function persistirFolderId(Model $model, string $id, string $campo = 'drive_folder_id'): void
+    {
+        if ($id === '' || (string) ($model->{$campo} ?? '') === $id) {
+            return;
+        }
+
+        $model->forceFill([$campo => $id])->save();
     }
 
     private function garantirPasta(string $token, string $pai, string $nome): string

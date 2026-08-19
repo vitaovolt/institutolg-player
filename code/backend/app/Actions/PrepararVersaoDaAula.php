@@ -2,7 +2,6 @@
 
 namespace App\Actions;
 
-use App\Jobs\CopiarAulaParaDriveJob;
 use App\Models\Aula;
 use App\Support\LerInicioDoArquivoDaBiblioteca;
 use App\Support\ValidarExportMp4;
@@ -61,8 +60,6 @@ class PrepararVersaoDaAula
         if ($playAnterior && $playAnterior !== $play && $disk->exists($playAnterior)) {
             $disk->delete($playAnterior);
         }
-
-        CopiarAulaParaDriveJob::dispatch($aula->id);
 
         return $aula->fresh();
     }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { despublicarAula, excluirAula, fetchAula, publicarAula, removerCapa, reprocessarDrive, salvarCapa } from '../api/aulas'
+import { despublicarAula, excluirAula, fetchAula, publicarAula, removerCapa, salvarCapa, sincronizarDrive } from '../api/aulas'
 import { fetchResumoMes } from '../api/biblioteca'
 import Button from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
@@ -149,7 +149,27 @@ export default function AulaDetalhePage() {
   const discNome = aula.disciplina?.nome || ''
   const pronta = aula.pronta_para_assistir
   const ocupado = submitting
-  const copiaPendente = pronta && aula.status_drive !== 'ok'
+  const sincronizandoDrive = aula.status_drive === 'enviando'
+
+  async function sincronizarPasta() {
+    if (submittingRef.current) return
+    if (!pronta || aula.status_drive === 'enviando') return
+    submittingRef.current = true
+    setSubmitting(true)
+    setAcao('drive')
+    try {
+      await sincronizarDrive(aula.id)
+      await carregar()
+      mostrarToast('Enviando a cópia para a pasta compartilhada.')
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Não foi possível concluir. Tente de novo.'
+      mostrarToast(msg, 'erro')
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+      setAcao('')
+    }
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-10" data-testid="pagina-detalhe-aula">
@@ -193,7 +213,7 @@ export default function AulaDetalhePage() {
         </p>
       ) : null}
 
-      {copiaPendente ? (
+      {sincronizandoDrive ? (
         <p className="mt-4 rounded-lg border border-[#F0D48A] bg-[#FFF8E8] px-3 py-2 text-sm font-semibold text-[#8A5A00]">
           Cópia na pasta compartilhada em andamento. O aluno já pode assistir se o HTML estiver na Eduq.
         </p>
@@ -320,16 +340,26 @@ export default function AulaDetalhePage() {
               {ocupado && acao === 'despublicar' ? 'Processando…' : 'Despublicar'}
             </button>
           ) : null}
-          {pronta && aula.status_drive !== 'ok' ? (
-            <button
-              type="button"
-              data-testid="btn-retry-drive"
-              disabled={ocupado}
-              onClick={() => comSubmit('drive', () => reprocessarDrive(aula.id), 'Enviando a cópia de novo.')}
-              className="rounded-lg border border-[var(--brand-line)] px-4 py-3 text-sm font-bold text-[var(--brand-primary)] disabled:opacity-70"
-            >
-              {ocupado && acao === 'drive' ? 'Processando…' : 'Tentar cópia de novo'}
-            </button>
+          {pronta ? (
+            <div className="flex min-w-[16rem] flex-1 flex-col gap-2">
+              <button
+                type="button"
+                data-testid="btn-sync-drive"
+                disabled={ocupado || sincronizandoDrive}
+                onClick={sincronizarPasta}
+                className="rounded-lg border border-[var(--brand-line)] px-4 py-3 text-sm font-bold text-[var(--brand-primary)] disabled:opacity-70"
+              >
+                {sincronizandoDrive
+                  ? 'Sincronizando…'
+                  : ocupado && acao === 'drive'
+                    ? 'Processando…'
+                    : 'Sincronizar com Google Drive'}
+              </button>
+              <p className="m-0 text-xs text-[var(--brand-muted)]" data-testid="ajuda-sync-drive">
+                Cria ou atualiza as pastas (curso, turma, disciplina) e o arquivo da aula na pasta compartilhada. Não
+                apaga nada no Drive.
+              </p>
+            </div>
           ) : null}
         </div>
       </section>

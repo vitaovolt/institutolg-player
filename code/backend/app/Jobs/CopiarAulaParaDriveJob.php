@@ -41,10 +41,12 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
             $aula = Aula::query()->with(['disciplina.turma.curso'])->find($this->aulaId);
 
             if ($aula === null || ! $aula->estaProntaParaAssistir()) {
-                return;
-            }
+                if ($aula !== null && $aula->status_drive === 'enviando') {
+                    $aula->update([
+                        'status_drive' => 'pendente',
+                    ]);
+                }
 
-            if ($aula->status_drive === 'ok') {
                 return;
             }
 
@@ -53,17 +55,31 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
             ]);
 
             $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
+            $streamVideo = null;
+            $tamanhoVideo = null;
+            $streamCapa = null;
+            $tamanhoCapa = null;
+            $extCapa = 'jpg';
 
             try {
-                $stream = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_play);
-                $tamanho = (int) $disk->size($aula->chave_play);
-                $cliente->enviarCopia($aula, $stream, $tamanho, 'video', 'mp4');
+                $enviarVideo = ! filled($aula->drive_file_id);
+                if ($enviarVideo) {
+                    $streamVideo = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_play);
+                    $tamanhoVideo = (int) $disk->size($aula->chave_play);
+                }
 
                 if (filled($aula->chave_capa) && $disk->exists($aula->chave_capa)) {
-                    $capa = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_capa);
-                    $ext = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
-                    $cliente->enviarCopia($aula, $capa, (int) $disk->size($aula->chave_capa), 'capa', $ext);
+                    $extCapa = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
+                    if (! filled($aula->drive_capa_file_id)) {
+                        $streamCapa = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_capa);
+                        $tamanhoCapa = (int) $disk->size($aula->chave_capa);
+                    }
                 }
+
+                $cliente->sincronizarAula($aula, $streamVideo, $tamanhoVideo, $streamCapa, $tamanhoCapa, $extCapa);
+                $streamVideo = null;
+                $streamCapa = null;
+                $aula->refresh();
                 $aula->update([
                     'status_drive' => 'ok',
                     'mensagem_erro' => null,
@@ -75,6 +91,12 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
                 ]);
 
                 throw $e;
+            } finally {
+                foreach ([$streamVideo, $streamCapa] as $aberto) {
+                    if (is_resource($aberto)) {
+                        fclose($aberto);
+                    }
+                }
             }
         });
     }

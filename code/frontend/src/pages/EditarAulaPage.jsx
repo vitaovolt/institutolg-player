@@ -85,8 +85,8 @@ export default function EditarAulaPage() {
       </p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">{aula.titulo}</h1>
       <p className="mt-2 text-[var(--brand-muted)]">
-        O nome no play é atualizado. Se a cópia na pasta compartilhada estiver ligada, o arquivo de lá também é
-        renomeado.
+        O nome no play é atualizado. A pasta compartilhada só muda quando você clicar em{' '}
+        <strong>Sincronizar com Google Drive</strong> no detalhe da aula.
       </p>
 
       <form

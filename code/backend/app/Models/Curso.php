@@ -14,6 +14,11 @@ class Curso extends Model
 
     protected $fillable = [
         'nome',
+        'drive_folder_id',
+    ];
+
+    protected $hidden = [
+        'drive_folder_id',
     ];
 
     public function scopeOrdenadosPorNome($query)

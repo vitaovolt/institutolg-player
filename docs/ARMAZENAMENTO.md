@@ -189,10 +189,11 @@ Reinicie o worker da fila.
 ### B4. Conferir a cópia
 
 1. No painel, envie um MP4 **pequeno** e espere **Pronta**.
-2. Status da cópia deve ir para **Ok**.
-3. Abra a pasta no Drive: deve existir **Curso → Turma → Disciplina**; o MP4 e a capa (se houver) ficam dentro da disciplina, com o título da aula.
+2. No detalhe da aula, clique em **Sincronizar com Google Drive** (a cópia **não** sobe sozinha após o envio).
+3. Status da cópia deve ir para **Ok**.
+4. Abra a pasta no Drive: deve existir **Curso → Turma → Disciplina**; o MP4 e a capa (se houver) ficam dentro da disciplina, com o título da aula.
 
-Se a cópia der erro e a aula estiver Pronta: o play está ok; use **Tentar de novo** na cópia. Causas típicas: pasta não compartilhada com o e-mail da conta de serviço, Drive API desligada, JSON no path errado.
+Se a cópia der erro e a aula estiver Pronta: o play está ok; use o mesmo botão de novo. Causas típicas: pasta não compartilhada com o e-mail da conta de serviço, Drive API desligada, JSON no path errado. A exclusão no painel **não** apaga a pasta compartilhada.
 
 ---
 

@@ -11,6 +11,8 @@ test.describe('F4 módulos', () => {
 
     await page.getByTestId('aula-Introdução').getByRole('link', { name: 'Introdução' }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+    await expect(page.getByTestId('btn-sync-drive')).toBeVisible()
+    await expect(page.getByTestId('btn-sync-drive')).toHaveText('Sincronizar com Google Drive')
     await expect(page.getByTestId('html-iframe')).toHaveValue(/iframe src=".*\/assistir\//)
     await expect(page.getByTestId('status-publicada')).toHaveText('Sim')
 
@@ -234,5 +236,28 @@ test.describe('F4 módulos', () => {
     await expect(page.getByTestId('aula-Introdução')).toBeVisible()
     await expect(page.getByTestId('aula-Casos clínicos')).toBeVisible()
     await expect(page.getByTestId('toast')).toContainText('Aula excluída')
+  })
+
+  test('detalhe: sincroniza aula de teste com a pasta compartilhada', async ({ page }) => {
+    await entrarComoCarolina(page)
+    const titulo = `Aula sync Drive ${Date.now()}`
+    await page.getByTestId('disciplina-Cardiologia').getByRole('link', { name: 'Enviar aula' }).click()
+    await page.getByLabel('Título da aula').fill(titulo)
+    await page.getByTestId('arquivo-mp4').setInputFiles({
+      name: 'aula-sync.mp4',
+      mimeType: 'video/mp4',
+      buffer: amostraMp4(),
+    })
+    await page.getByRole('button', { name: 'Enviar aula' }).click()
+    await expect(page.getByTestId('pagina-biblioteca')).toBeVisible({ timeout: 45_000 })
+    await page.getByTestId(`aula-${titulo}`).getByRole('link', { name: titulo }).click()
+    await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+    await expect(page.getByTestId('btn-sync-drive')).toBeVisible({ timeout: 45_000 })
+    await expect(page.getByTestId('btn-sync-drive')).toHaveText('Sincronizar com Google Drive')
+    await expect(page.getByTestId('ajuda-sync-drive')).toContainText('Não apaga nada no Drive')
+    await expect(page.getByTestId('pagina-detalhe-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)
+
+    await page.getByTestId('btn-sync-drive').click()
+    await expect(page.getByTestId('toast')).toContainText('pasta compartilhada')
   })
 })

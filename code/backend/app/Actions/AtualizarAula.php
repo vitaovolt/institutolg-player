@@ -3,18 +3,14 @@
 namespace App\Actions;
 
 use App\Models\Aula;
-use App\Services\Integrations\ClientePastaDrive;
 use App\Support\CaminhoDaBiblioteca;
 use App\Support\MoverArquivoDaBiblioteca;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class AtualizarAula
 {
-    public function __construct(private ClientePastaDrive $pastaDrive) {}
-
     /**
      * @param  array{titulo?: string, ordem?: int}  $dados
      */
@@ -45,10 +41,6 @@ class AtualizarAula
             } catch (Throwable $e) {
                 $this->moverNoPlay($chavesNovas, $chavesAntigas);
                 throw $e;
-            }
-
-            if ($tituloAnterior !== $tituloNovo) {
-                $this->tentarRenomearNaPastaCompartilhada($aula->fresh(['disciplina.turma.curso']), $tituloAnterior);
             }
 
             return $aula->fresh();
@@ -111,22 +103,6 @@ class AtualizarAula
                 }
             }
             throw $e;
-        }
-    }
-
-    private function tentarRenomearNaPastaCompartilhada(Aula $aula, string $tituloAnterior): void
-    {
-        if (! $this->pastaDrive->copiaAtiva()) {
-            return;
-        }
-
-        try {
-            $this->pastaDrive->renomearCopia($aula, $tituloAnterior);
-        } catch (Throwable $e) {
-            Log::warning('Não foi possível atualizar o nome na pasta compartilhada.', [
-                'aula_id' => $aula->id,
-                'motivo' => $e::class,
-            ]);
         }
     }
 }

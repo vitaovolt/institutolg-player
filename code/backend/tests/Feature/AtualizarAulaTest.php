@@ -56,7 +56,7 @@ class AtualizarAulaTest extends TestCase
         $this->assertSame($capaNova, $aula->fresh()->chave_capa);
     }
 
-    public function test_com_copia_ligada_renomeia_arquivo_na_pasta_compartilhada(): void
+    public function test_atualizar_titulo_move_play_e_nao_a_pasta_compartilhada(): void
     {
         $this->comoCoordenacao();
         $aula = $this->aulaComPlayECapa('Nome antigo');
@@ -67,36 +67,28 @@ class AtualizarAulaTest extends TestCase
 
         $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Nome novo'])->assertOk();
 
-        $drive->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
-        $drive->assertMissing(CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome antigo', 'png'));
-        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
-        $drive->assertExists(CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome novo', 'png'));
+        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
+        $drive->assertExists(CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome antigo', 'png'));
+        $drive->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
+        $drive->assertMissing(CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome novo', 'png'));
     }
 
-    public function test_com_copia_desligada_atualiza_play_e_nao_move_a_pasta(): void
+    public function test_editar_titulo_nao_chama_cliente_da_pasta(): void
     {
-        config([
-            'biblioteca.drive.fake' => false,
-            'biblioteca.drive.pausado' => true,
-            'biblioteca.drive.upload_url' => '',
-            'biblioteca.drive.service_account_path' => '',
-            'biblioteca.drive.folder_id' => '',
-        ]);
+        Http::fake();
+        $this->mock(\App\Services\Integrations\ClientePastaDrive::class, function ($mock) {
+            $mock->shouldNotReceive('enviarCopia');
+            $mock->shouldNotReceive('renomearCopia');
+            $mock->shouldNotReceive('sincronizarAula');
+        });
         $this->comoCoordenacao();
         $aula = $this->aulaComPlayECapa('Nome antigo');
-        $disciplina = $aula->disciplina;
-        $copia = CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo');
-        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
-        $drive->put($copia, 'copia-da-pasta');
 
         $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Nome novo'])
             ->assertOk()
             ->assertJsonPath('data.titulo', 'Nome novo');
 
-        Storage::disk((string) config('biblioteca.disk_aulas'))
-            ->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
-        $drive->assertExists($copia);
-        $drive->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
+        Http::assertNothingSent();
     }
 
     public function test_erro_403_na_pasta_nao_impede_editar_o_play(): void

@@ -36,6 +36,8 @@ class Aula extends Model
         'chave_arquivo',
         'chave_play',
         'chave_capa',
+        'drive_file_id',
+        'drive_capa_file_id',
         'tamanho_bytes',
     ];
 
@@ -45,6 +47,8 @@ class Aula extends Model
         'chave_arquivo',
         'chave_play',
         'chave_capa',
+        'drive_file_id',
+        'drive_capa_file_id',
         'chave_idempotencia',
     ];
 

@@ -520,12 +520,28 @@ paths:
           description: Despublicada
         '401':
           description: Sem token
+  /aulas/{aula}/drive/sincronizar:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: sincronizarAulaComDrive
+      summary: Cria ou atualiza pastas e o arquivo da aula na pasta compartilhada (não apaga nada lá)
+      tags: [Envios]
+      responses:
+        '200':
+          description: Job na fila biblioteca
+        '401':
+          description: Sem token
+        '403':
+          description: Conta inativa
+        '422':
+          description: Aula ainda não pronta
   /aulas/{aula}/drive/reprocessar:
     parameters:
       - $ref: '#/components/parameters/AulaId'
     post:
       operationId: reprocessarCopiaDrive
-      summary: Reenfileira a cópia para a pasta compartilhada (não bloqueia o play)
+      summary: Alias de sincronizar — cria ou atualiza a cópia na pasta compartilhada (não bloqueia o play)
       tags: [Envios]
       responses:
         '200':

@@ -71,8 +71,8 @@ export async function despublicarAula(aulaId) {
   return data
 }
 
-export async function reprocessarDrive(aulaId) {
-  const { data } = await client.post(`/aulas/${aulaId}/drive/reprocessar`)
+export async function sincronizarDrive(aulaId) {
+  const { data } = await client.post(`/aulas/${aulaId}/drive/sincronizar`)
   return data
 }
 

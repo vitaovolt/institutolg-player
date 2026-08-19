@@ -193,23 +193,43 @@ class CopiaDriveTest extends TestCase
             'mensagem_erro' => 'falhou',
         ]));
 
-        $this->postJson("/api/v1/aulas/{$aula->id}/drive/reprocessar")->assertUnauthorized();
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertUnauthorized();
 
+        $this->comoCoordenacao();
+        Queue::fake();
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")
+            ->assertOk()
+            ->assertJsonPath('data.status_drive', 'enviando')
+            ->assertJsonPath('message', 'Enviando a cópia para a pasta compartilhada.');
+
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'enviando']);
+        Queue::assertPushedOn('biblioteca', CopiarAulaParaDriveJob::class);
+        Queue::assertPushed(CopiarAulaParaDriveJob::class, fn (CopiarAulaParaDriveJob $job) => $job->aulaId === $aula->id);
+    }
+
+    public function test_alias_reprocessar_chama_o_mesmo_contrato(): void
+    {
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create([
+            'status_drive' => 'pendente',
+        ]));
         $this->comoCoordenacao();
         Queue::fake();
 
         $this->postJson("/api/v1/aulas/{$aula->id}/drive/reprocessar")
             ->assertOk()
-            ->assertJsonPath('data.status_drive', 'pendente');
+            ->assertJsonPath('data.status_drive', 'enviando');
 
-        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'pendente']);
-        Queue::assertPushedOn('biblioteca', CopiarAulaParaDriveJob::class);
-        Queue::assertPushed(CopiarAulaParaDriveJob::class, fn (CopiarAulaParaDriveJob $job) => $job->aulaId === $aula->id);
+        Queue::assertPushed(CopiarAulaParaDriveJob::class, 1);
     }
 
-    public function test_preparar_aula_dispara_copia_na_fila_biblioteca(): void
+    public function test_preparar_aula_nao_dispara_copia_na_fila_biblioteca(): void
     {
         Queue::fake();
+        $this->mock(ClientePastaDrive::class, function ($mock) {
+            $mock->shouldNotReceive('enviarCopia');
+            $mock->shouldNotReceive('sincronizarAula');
+        });
         $aula = Aula::factory()->create([
             'status_preparo' => 'preparando',
             'chave_arquivo' => 'origens/ok.mp4',
@@ -224,6 +244,123 @@ class CopiaDriveTest extends TestCase
             'status_preparo' => 'pronta',
             'status_drive' => 'pendente',
         ]);
-        Queue::assertPushedOn('biblioteca', CopiarAulaParaDriveJob::class);
+        Queue::assertNotPushed(CopiarAulaParaDriveJob::class);
+    }
+
+    public function test_sincronizar_grava_pastas_e_arquivo_no_disco_fake(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->aulaProntaNaArvore('Aula sync');
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $aula->refresh()->load('disciplina.turma.curso');
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'ok']);
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->disciplina, 'Aula sync'));
+        $this->assertNotEmpty($aula->disciplina->turma->curso->drive_folder_id);
+        $this->assertNotEmpty($aula->disciplina->turma->drive_folder_id);
+        $this->assertNotEmpty($aula->disciplina->drive_folder_id);
+        $this->assertNotEmpty($aula->drive_file_id);
+    }
+
+    public function test_segunda_sincronizacao_com_titulo_novo_atualiza_o_path(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->aulaProntaNaArvore('Nome antigo');
+        $disciplina = $aula->disciplina;
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
+
+        $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Nome novo'])->assertOk();
+        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
+        $drive->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
+        $this->assertSame(
+            CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'),
+            $aula->fresh()->drive_file_id,
+        );
+    }
+
+    public function test_sincronizar_apos_renomear_curso_atualiza_path_no_fake(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->aulaProntaNaArvore('Aula pasta');
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $curso = $aula->disciplina->turma->curso;
+        $this->putJson("/api/v1/cursos/{$curso->id}", ['nome' => 'Curso novo sync'])->assertOk();
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $aula->refresh()->load('disciplina.turma.curso');
+        Storage::disk((string) config('biblioteca.disk_drive'))
+            ->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->disciplina, 'Aula pasta'));
+        $this->assertSame(
+            CaminhoDaBiblioteca::segmento('Curso novo sync'),
+            $aula->disciplina->turma->curso->drive_folder_id,
+        );
+    }
+
+    public function test_sincronizar_conta_inativa_retorna_403(): void
+    {
+        $aula = $this->aulaProntaNaArvore('Aula policy drive');
+        $this->comoInativo();
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertForbidden();
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'pendente']);
+    }
+
+    public function test_sincronizar_aula_nao_pronta_retorna_422(): void
+    {
+        $this->comoCoordenacao();
+        $aula = Aula::factory()->create([
+            'status_preparo' => 'rascunho',
+            'status_drive' => 'pendente',
+        ]);
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'pendente']);
+    }
+
+    public function test_duplo_post_enquanto_enviando_nao_dispara_segundo_job(): void
+    {
+        $this->comoCoordenacao();
+        Queue::fake();
+        $aula = $this->aulaProntaNaArvore('Aula lock');
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        Queue::assertPushed(CopiarAulaParaDriveJob::class, 1);
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'enviando']);
+    }
+
+    private function aulaProntaNaArvore(string $titulo): Aula
+    {
+        $aula = Aula::factory()->publicada()->create([
+            'titulo' => $titulo,
+            'status_drive' => 'pendente',
+        ]);
+        $aula->load('disciplina.turma.curso');
+        $video = CaminhoDaBiblioteca::chaveVideo($aula->disciplina, $titulo);
+        Storage::disk((string) config('biblioteca.disk_aulas'))->put($video, ValidarExportMp4::amostraValida());
+        $aula->update([
+            'chave_arquivo' => $video,
+            'chave_play' => $video,
+            'status_preparo' => 'pronta',
+        ]);
+
+        return $aula->fresh(['disciplina.turma.curso']);
     }
 }

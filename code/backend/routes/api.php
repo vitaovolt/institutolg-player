@@ -40,6 +40,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('/aulas/{aula}/envios/substituir', [EnvioAulaController::class, 'substituir']);
         Route::post('/aulas/{aula}/publicar', [PublicacaoAulaController::class, 'publicar']);
         Route::post('/aulas/{aula}/despublicar', [PublicacaoAulaController::class, 'despublicar']);
+        Route::post('/aulas/{aula}/drive/sincronizar', [CopiaDriveController::class, 'sincronizar']);
         Route::post('/aulas/{aula}/drive/reprocessar', [CopiaDriveController::class, 'reprocessar']);
         Route::post('/aulas/{aula}/capa', [CapaAulaController::class, 'salvar']);
         Route::delete('/aulas/{aula}/capa', [CapaAulaController::class, 'destruir']);

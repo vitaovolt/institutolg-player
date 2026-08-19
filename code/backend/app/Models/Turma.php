@@ -16,6 +16,11 @@ class Turma extends Model
     protected $fillable = [
         'curso_id',
         'nome',
+        'drive_folder_id',
+    ];
+
+    protected $hidden = [
+        'drive_folder_id',
     ];
 
     public function scopeOrdenadasPorNome($query)

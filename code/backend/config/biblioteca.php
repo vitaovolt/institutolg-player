@@ -17,6 +17,7 @@ return [
     'capa_max_bytes' => (int) env('BIBLIOTECA_CAPA_MAX_BYTES', 2 * 1024 * 1024),
     'drive' => [
         'fake' => filter_var(env('BIBLIOTECA_DRIVE_FAKE', true), FILTER_VALIDATE_BOOLEAN),
+        // Legado do sync automático. A cópia só dispara no botão; este flag não bloqueia o botão.
         'pausado' => filter_var(env('BIBLIOTECA_DRIVE_PAUSADO', false), FILTER_VALIDATE_BOOLEAN),
         'upload_url' => env('BIBLIOTECA_DRIVE_UPLOAD_URL', ''),
         'token' => env('BIBLIOTECA_DRIVE_TOKEN', ''),
