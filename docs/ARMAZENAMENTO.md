@@ -161,8 +161,10 @@ sudo chmod 640 /var/www/institutolg-player/secrets/drive-sa.json
 
 ### B2. Pasta no Drive do Instituto (Carolina)
 
-1. No Drive dos 24 TB, criar pasta ex.: `Biblioteca aulas — Educraft`.
-2. **Compartilhar** com o e-mail da conta de serviço → permissão **Editor**.
+A conta de serviço **não tem cota** no “Meu Drive”. A pasta da biblioteca precisa ser um **Drive compartilhado** (Shared drive), não uma pasta comum compartilhada por link.
+
+1. No Drive dos 24 TB, criar um **Drive compartilhado** (ou uma pasta dentro dele), ex.: `Biblioteca aulas — Educraft`.
+2. **Gerenciar membros** → adicionar o e-mail da conta de serviço → permissão **Administrador de conteúdo** (ou Editor).
 3. Abrir a pasta no navegador; o ID está na URL:
 
 ```
