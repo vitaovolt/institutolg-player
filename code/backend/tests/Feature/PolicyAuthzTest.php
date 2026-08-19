@@ -36,6 +36,7 @@ class PolicyAuthzTest extends TestCase
             ->assertForbidden();
         $this->getJson('/api/v1/biblioteca')->assertForbidden();
         $this->getJson('/api/v1/resumo-mes')->assertForbidden();
+        $this->getJson('/api/v1/usuarios')->assertForbidden();
         $this->postJson('/api/v1/aulas/'.$aula->id.'/despublicar')->assertForbidden();
         $this->postJson('/api/v1/cursos', ['nome' => 'Curso invasor'])->assertForbidden();
 

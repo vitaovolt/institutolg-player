@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\PublicacaoAulaController;
 use App\Http\Controllers\Api\ResumoDoMesController;
 use App\Http\Controllers\Api\TurmaController;
+use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:api')->group(function () {
@@ -28,6 +29,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
 
         Route::get('/biblioteca', BibliotecaController::class);
         Route::get('/resumo-mes', ResumoDoMesController::class);
+        Route::apiResource('usuarios', UsuarioController::class)->parameters(['usuarios' => 'user']);
 
         Route::apiResource('cursos', CursoController::class);
         Route::apiResource('cursos.turmas', TurmaController::class)->shallow();

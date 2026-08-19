@@ -80,6 +80,7 @@ class AuthTest extends TestCase
         $this->getJson('/api/v1/biblioteca')->assertUnauthorized();
         $this->getJson('/api/v1/resumo-mes')->assertUnauthorized();
         $this->getJson('/api/v1/cursos')->assertUnauthorized();
+        $this->getJson('/api/v1/usuarios')->assertUnauthorized();
     }
 
     public function test_biblioteca_sem_accept_json_retorna_401_nao_500(): void

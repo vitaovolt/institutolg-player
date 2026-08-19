@@ -7,7 +7,8 @@ test.describe('F4 módulos', () => {
   test('detalhe: copiar HTML, despublicar e publicar', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await entrarComoCarolina(page)
-    await expect(navPrincipal(page).getByRole('link', { name: 'Organizar' })).toBeVisible()
+    await expect(navPrincipal(page).getByRole('link', { name: 'Custos' })).toBeVisible()
+    await expect(navPrincipal(page).getByRole('link', { name: 'Usuários' })).toBeVisible()
 
     await page.getByTestId('aula-Introdução').getByRole('link', { name: 'Introdução' }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
@@ -73,10 +74,10 @@ test.describe('F4 módulos', () => {
     await expect(page.getByTestId('html-iframe')).toHaveValue(/iframe/)
   })
 
-  test('organizar: criar turma com Editar e Excluir visíveis', async ({ page }) => {
+  test('biblioteca: criar turma com Editar e Excluir visíveis', async ({ page }) => {
     await entrarComoCarolina(page)
-    await navPrincipal(page).getByRole('link', { name: 'Organizar' }).click()
-    await expect(page.getByTestId('pagina-organizar')).toBeVisible()
+    await expect(page.getByTestId('pagina-biblioteca')).toBeVisible()
+    await expect(page.getByText('Resumo do mês')).toHaveCount(0)
     await expect(page.getByTestId('curso-Pós-graduação em Saúde').getByRole('button', { name: 'Editar' })).toBeVisible()
     await expect(page.getByTestId('curso-Pós-graduação em Saúde').getByRole('button', { name: 'Excluir' })).toBeVisible()
 

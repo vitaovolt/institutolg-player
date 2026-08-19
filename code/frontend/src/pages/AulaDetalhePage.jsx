@@ -4,11 +4,8 @@ import { despublicarAula, excluirAula, fetchAula, publicarAula, removerCapa, sal
 import { fetchResumoMes } from '../api/biblioteca'
 import Button from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
+import { formatarCompetencia, formatarDataBR, formatarReais } from '../services/formatar'
 import { rotuloStatusDrive, rotuloStatusPreparo } from '../services/validarMp4'
-
-function formatarReais(valor) {
-  return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
 function pill(ok, texto) {
   return (
@@ -183,6 +180,10 @@ export default function AulaDetalhePage() {
       <p className="mt-2 text-[var(--brand-muted)]">
         {cursoNome} → {turmaNome} → {discNome}
       </p>
+      <p className="mt-1 text-sm text-[var(--brand-muted)]">
+        Enviada em {formatarDataBR(aula.enviado_em)}
+        {aula.publicada_em ? ` · publicada em ${formatarDataBR(aula.publicada_em)}` : ''}
+      </p>
 
       <section className="mt-6 grid grid-cols-2 gap-3">
         <div className="rounded-[10px] border border-[var(--brand-line)] bg-[var(--brand-surface)] p-3">
@@ -209,7 +210,10 @@ export default function AulaDetalhePage() {
 
       {resumo ? (
         <p className="mt-3 text-sm text-[var(--brand-muted)]" data-testid="resumo-detalhe">
-          Mês {resumo.competencia}: {resumo.publicadas} publicadas · {formatarReais(resumo.total)}
+          Mês {formatarCompetencia(resumo.competencia)}: {resumo.publicadas} publicadas · {formatarReais(resumo.total)}.{' '}
+          <Link to="/custos" className="font-semibold text-[var(--brand-primary)]">
+            Ver painel de custos
+          </Link>
         </p>
       ) : null}
 

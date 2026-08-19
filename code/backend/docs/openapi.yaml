@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Instituto LG — Biblioteca de aulas API
-  version: 0.7.0
+  version: 0.8.0
   description: |
     API do painel (coordenação). Aluno não usa esta API — assiste na Eduq.
     Health: 200 com checks.database=ok; 503 se o banco cair (smoke de deploy).
@@ -101,7 +101,7 @@ paths:
   /resumo-mes:
     get:
       operationId: resumoDoMes
-      summary: Envios e mensalidade do mês (não é BI de plays)
+      summary: Envios, aulas importadas e mensalidade (não é BI de plays)
       tags: [Biblioteca]
       parameters:
         - name: mes
@@ -111,7 +111,102 @@ paths:
             example: '2026-08'
       responses:
         '200':
-          description: Contagens e totais
+          description: Contagens, histórico de 12 meses e totais
+        '401':
+          description: Sem token
+        '403':
+          description: Conta sem permissão
+  /usuarios:
+    get:
+      operationId: listarUsuarios
+      summary: Contas do painel (até 5)
+      tags: [Usuarios]
+      responses:
+        '200':
+          description: Lista
+        '401':
+          description: Sem token
+        '403':
+          description: Conta sem permissão
+    post:
+      operationId: criarUsuario
+      tags: [Usuarios]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                ativo:
+                  type: boolean
+      responses:
+        '201':
+          description: Criado
+        '401':
+          description: Sem token
+        '403':
+          description: Conta sem permissão
+        '422':
+          description: Validação ou teto de 5 contas
+  /usuarios/{user}:
+    parameters:
+      - name: user
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: verUsuario
+      tags: [Usuarios]
+      responses:
+        '200':
+          description: Usuário
+        '401':
+          description: Sem token
+        '404':
+          description: Não encontrado
+    put:
+      operationId: atualizarUsuario
+      tags: [Usuarios]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                ativo:
+                  type: boolean
+      responses:
+        '200':
+          description: Atualizado
+        '422':
+          description: Validação (ex. desativar a si mesmo)
+    delete:
+      operationId: excluirUsuario
+      tags: [Usuarios]
+      responses:
+        '200':
+          description: Removido
+        '422':
+          description: Não pode excluir a própria conta
+        '404':
+          description: Não encontrado
   /cursos:
     get:
       operationId: listarCursos

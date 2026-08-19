@@ -90,10 +90,15 @@ class Aula extends Model
         return $query->where('publicada', true);
     }
 
+    public function scopeImportadas(Builder $query): Builder
+    {
+        return $query->whereNotNull('enviado_em');
+    }
+
     public function scopeEnviadasNoMes(Builder $query, Carbon $inicio, Carbon $fim): Builder
     {
         return $query
-            ->whereNotNull('enviado_em')
+            ->importadas()
             ->whereBetween('enviado_em', [$inicio, $fim]);
     }
 
