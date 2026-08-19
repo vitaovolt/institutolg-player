@@ -57,6 +57,7 @@ class HardeningTest extends TestCase
         $pagina->assertOk();
         $csp = (string) $pagina->headers->get('Content-Security-Policy');
         $this->assertStringContainsString("media-src 'self' https://objetos.exemplo.test", $csp);
+        $this->assertStringContainsString("img-src 'self' data: https://objetos.exemplo.test", $csp);
         $this->assertStringContainsString('frame-ancestors *', $csp);
     }
 

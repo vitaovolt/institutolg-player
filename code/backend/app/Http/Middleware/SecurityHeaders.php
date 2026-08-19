@@ -21,9 +21,12 @@ class SecurityHeaders
             // Aluno assiste num iframe da Eduq (outra origem). DENY/same-site quebra o embed.
             $response->headers->remove('X-Frame-Options');
             $response->headers->set('Cross-Origin-Resource-Policy', 'cross-origin');
+            $objetos = $this->origensDoObjetoDePlay();
+            $midia = implode(' ', array_merge(["'self'"], $objetos));
+            $imagens = implode(' ', array_merge(["'self'", 'data:'], $objetos));
             $response->headers->set(
                 'Content-Security-Policy',
-                "default-src 'self'; media-src {$this->fontesDeMidiaDoPlayer()}; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src 'self'; frame-ancestors *; base-uri 'self'"
+                "default-src 'self'; media-src {$midia}; img-src {$imagens}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src 'self'; frame-ancestors *; base-uri 'self'"
             );
         } else {
             $response->headers->set('X-Frame-Options', 'DENY');
@@ -53,17 +56,19 @@ class SecurityHeaders
     }
 
     /**
-     * Em produção o video do player aponta para URL temporária do objeto (outra origem).
-     * media-src só 'self' impede o play mesmo com o arquivo pronto.
+     * Em produção vídeo e capa apontam para URL temporária do objeto (outra origem).
+     * media-src / img-src só 'self' deixa a página 200 e a mídia muda.
+     *
+     * @return list<string>
      */
-    private function fontesDeMidiaDoPlayer(): string
+    private function origensDoObjetoDePlay(): array
     {
-        $fontes = ["'self'"];
+        $origens = [];
         $disco = (string) config('biblioteca.disk_aulas', 'aulas');
         $cfg = config('filesystems.disks.'.$disco, []);
 
         if (! is_array($cfg)) {
-            return implode(' ', $fontes);
+            return $origens;
         }
 
         foreach (['endpoint', 'url'] as $campo) {
@@ -73,11 +78,11 @@ class SecurityHeaders
             }
 
             $origem = 'https://'.$host;
-            if (! in_array($origem, $fontes, true)) {
-                $fontes[] = $origem;
+            if (! in_array($origem, $origens, true)) {
+                $origens[] = $origem;
             }
         }
 
-        return implode(' ', $fontes);
+        return $origens;
     }
 }

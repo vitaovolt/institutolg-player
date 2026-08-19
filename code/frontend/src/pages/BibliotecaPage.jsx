@@ -398,6 +398,7 @@ export default function BibliotecaPage() {
                                                 <img
                                                   src={aula.url_capa}
                                                   alt=""
+                                                  loading="lazy"
                                                   className="h-8 w-14 rounded object-cover bg-[#120F24]"
                                                 />
                                               ) : null}

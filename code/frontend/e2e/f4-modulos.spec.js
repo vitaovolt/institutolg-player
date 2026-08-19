@@ -26,7 +26,7 @@ test.describe('F4 módulos', () => {
     await page.getByTestId('btn-despublicar').click()
     await expect(page.getByTestId('status-publicada')).toHaveText('Não', { timeout: 15_000 })
     await expect(page.getByTestId('toast')).toContainText('despublicada')
-    await expect(page.getByTestId('resumo-detalhe')).toContainText('1 publicadas')
+    await expect(page.getByTestId('pagina-detalhe-aula')).toContainText('Fora da linha')
 
     const src = html.match(/src="([^"]+)"/)?.[1]
     expect(src).toBeTruthy()

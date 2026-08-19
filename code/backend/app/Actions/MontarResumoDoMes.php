@@ -64,9 +64,9 @@ class MontarResumoDoMes
         $mapa = Aula::query()
             ->importadas()
             ->whereBetween('enviado_em', [$primeiro, $ultimo])
-            ->get(['enviado_em'])
-            ->groupBy(fn (Aula $aula) => $aula->enviado_em->format('Y-m'))
-            ->map->count();
+            ->selectRaw($this->expressaoCompetencia().' as competencia, count(*) as total')
+            ->groupByRaw($this->expressaoCompetencia())
+            ->pluck('total', 'competencia');
 
         $serie = [];
         $cursor = $primeiro->copy();
@@ -80,5 +80,12 @@ class MontarResumoDoMes
         }
 
         return $serie;
+    }
+
+    private function expressaoCompetencia(): string
+    {
+        return Aula::query()->getConnection()->getDriverName() === 'pgsql'
+            ? "to_char(enviado_em, 'YYYY-MM')"
+            : "strftime('%Y-%m', enviado_em)";
     }
 }

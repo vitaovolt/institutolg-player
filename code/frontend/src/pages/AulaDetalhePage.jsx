@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { despublicarAula, excluirAula, fetchAula, publicarAula, removerCapa, salvarCapa, sincronizarDrive } from '../api/aulas'
-import { fetchResumoMes } from '../api/biblioteca'
 import Button from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
-import { formatarCompetencia, formatarDataBR, formatarReais } from '../services/formatar'
+import { formatarDataBR } from '../services/formatar'
 import { rotuloStatusDrive, rotuloStatusPreparo } from '../services/validarMp4'
 
 function pill(ok, texto) {
@@ -22,16 +21,14 @@ export default function AulaDetalhePage() {
   const { show: mostrarToast } = useToast()
   const submittingRef = useRef(false)
   const [aula, setAula] = useState(null)
-  const [resumo, setResumo] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [acao, setAcao] = useState('')
   const [arquivoCapa, setArquivoCapa] = useState(null)
 
   async function carregar() {
-    const [aulaRes, mes] = await Promise.all([fetchAula(aulaId), fetchResumoMes()])
+    const aulaRes = await fetchAula(aulaId)
     setAula(aulaRes.data)
-    setResumo(mes.data)
     setError('')
     return aulaRes.data
   }
@@ -208,14 +205,11 @@ export default function AulaDetalhePage() {
         </div>
       </section>
 
-      {resumo ? (
-        <p className="mt-3 text-sm text-[var(--brand-muted)]" data-testid="resumo-detalhe">
-          Mês {formatarCompetencia(resumo.competencia)}: {resumo.publicadas} publicadas · {formatarReais(resumo.total)}.{' '}
-          <Link to="/custos" className="font-semibold text-[var(--brand-primary)]">
-            Ver painel de custos
-          </Link>
-        </p>
-      ) : null}
+      <p className="mt-3 text-sm">
+        <Link to="/custos" className="font-semibold text-[var(--brand-primary)]">
+          Ver painel de custos
+        </Link>
+      </p>
 
       {sincronizandoDrive ? (
         <p className="mt-4 rounded-lg border border-[#F0D48A] bg-[#FFF8E8] px-3 py-2 text-sm font-semibold text-[#8A5A00]">

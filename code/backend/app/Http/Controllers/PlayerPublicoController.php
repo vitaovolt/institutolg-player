@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Aula;
-use App\Support\ValidarFotoCapa;
+use App\Support\UrlTemporariaDaBiblioteca;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
@@ -64,17 +64,23 @@ class PlayerPublicoController extends Controller
 
     public function capa(Aula $aula): Response
     {
-        $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
-
-        if (! $aula->chave_capa || ! $disk->exists($aula->chave_capa)) {
+        if (! filled($aula->chave_capa)) {
             abort(404);
         }
 
-        $binario = $disk->get($aula->chave_capa);
-        $mime = ValidarFotoCapa::mime($binario) ?? 'image/jpeg';
+        $temporaria = UrlTemporariaDaBiblioteca::paraChave($aula->chave_capa);
+        if ($temporaria !== null) {
+            return redirect()->away($temporaria);
+        }
+
+        $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
+
+        if (! $disk->exists($aula->chave_capa)) {
+            abort(404);
+        }
 
         return $disk->response($aula->chave_capa, 'capa.'.$aula->id, [
-            'Content-Type' => $mime,
+            'Content-Type' => UrlTemporariaDaBiblioteca::mimeDaChave($aula->chave_capa),
             'Content-Disposition' => 'inline',
             'Cache-Control' => 'private, max-age=300',
         ], 'inline');
@@ -86,14 +92,9 @@ class PlayerPublicoController extends Controller
      */
     private function urlTemporariaDaMidia(Aula $aula, int $ttlMinutos): string
     {
-        $nome = (string) config('biblioteca.disk_aulas');
-        $driver = config("filesystems.disks.{$nome}.driver");
-
-        if ($aula->chave_play && $driver === 's3') {
-            return Storage::disk($nome)->temporaryUrl(
-                $aula->chave_play,
-                now()->addMinutes($ttlMinutos),
-            );
+        $temporaria = UrlTemporariaDaBiblioteca::paraChave($aula->chave_play);
+        if ($temporaria !== null) {
+            return $temporaria;
         }
 
         return URL::temporarySignedRoute(

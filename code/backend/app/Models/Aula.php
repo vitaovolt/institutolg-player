@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\UrlTemporariaDaBiblioteca;
 use Database\Factories\AulaFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -143,6 +144,7 @@ class Aula extends Model
             return null;
         }
 
-        return url('/capa/'.$this->token_publico);
+        return UrlTemporariaDaBiblioteca::paraChave($this->chave_capa)
+            ?? url('/capa/'.$this->token_publico);
     }
 }
