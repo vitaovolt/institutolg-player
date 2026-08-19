@@ -55,7 +55,10 @@ class PlayerPublicoTest extends TestCase
         $pagina = $this->get('/assistir/'.$aula->token_publico);
 
         $pagina->assertOk()
+            ->assertSee('data-testid="player-wrap"', false)
             ->assertSee('data-testid="player-speed-1"', false)
+            ->assertSee('.player-wrap:hover .speeds', false)
+            ->assertSee('bottom: 48px', false)
             ->assertSee('data-testid="player-speed-1-5"', false)
             ->assertSee('data-testid="player-speed-2"', false)
             ->assertSee('data-testid="player-speed-4"', false)

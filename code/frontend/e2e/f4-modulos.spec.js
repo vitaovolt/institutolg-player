@@ -61,6 +61,8 @@ test.describe('F4 módulos', () => {
     const video = player.getByTestId('player-video')
     await expect(video).toBeVisible()
     await expect(video).toHaveAttribute('controlslist', /nodownload/)
+    await expect(player.getByTestId('player-speeds')).toBeAttached()
+    await player.getByTestId('player-wrap').hover()
     await expect(player.getByTestId('player-speeds')).toBeVisible()
     await player.getByTestId('player-speed-2').click()
     await expect(video).toHaveJSProperty('playbackRate', 2)

@@ -24,28 +24,37 @@
         video { width: 100%; max-height: calc(100vh - 88px); background: #000; border-radius: 10px; display: block; }
         .speeds {
             position: absolute;
-            top: 8px;
             right: 8px;
+            bottom: 48px;
             display: flex;
-            gap: 4px;
+            gap: 2px;
             z-index: 2;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s ease;
+        }
+        .player-wrap:hover .speeds,
+        .player-wrap:focus-within .speeds,
+        .player-wrap.is-controls .speeds {
+            opacity: 1;
+            pointer-events: auto;
         }
         .speeds button {
             font-family: inherit;
-            font-size: .7rem;
-            font-weight: 800;
-            letter-spacing: .02em;
-            padding: 5px 8px;
-            border-radius: 6px;
-            border: 1px solid rgba(17, 215, 225, .45);
-            background: rgba(18, 15, 36, .78);
-            color: #fff;
+            font-size: .62rem;
+            font-weight: 700;
+            letter-spacing: .01em;
+            padding: 3px 7px;
+            border-radius: 4px;
+            border: 0;
+            background: transparent;
+            color: rgba(255, 255, 255, .72);
             cursor: pointer;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, .7);
         }
         .speeds button[aria-pressed="true"] {
-            background: var(--brand-accent);
-            color: var(--brand-ink);
-            border-color: var(--brand-accent);
+            color: #fff;
+            box-shadow: inset 0 -2px 0 var(--brand-accent);
         }
         .speeds button:focus-visible {
             outline: 2px solid var(--brand-accent);
@@ -56,7 +65,8 @@
             .shell { padding: 8px; }
             h1 { font-size: .95rem; }
             video { max-height: calc(100svh - 72px); }
-            .speeds button { font-size: .65rem; padding: 4px 6px; }
+            .speeds { bottom: 44px; right: 6px; }
+            .speeds button { font-size: .6rem; padding: 3px 6px; }
         }
     </style>
 </head>
@@ -64,7 +74,7 @@
     <main class="shell">
         <p class="kicker">Aula gravada</p>
         <h1>{{ $aula->titulo }}</h1>
-        <div class="player-wrap">
+        <div class="player-wrap" data-testid="player-wrap">
             <video
                 data-testid="player-video"
                 controls
@@ -83,13 +93,14 @@
                 <button type="button" data-testid="player-speed-4" data-rate="4" aria-pressed="false">4x</button>
             </div>
         </div>
-        <p class="hint">Assistir nesta tela. Sem arquivo para baixar. Velocidade: 1x, 1,5x, 2x ou 4x.</p>
+        <p class="hint">Assistir nesta tela. Sem arquivo para baixar.</p>
     </main>
     <script nonce="{{ $cspNonce ?? '' }}">
         (function () {
             var video = document.querySelector('[data-testid="player-video"]');
             var group = document.querySelector('[data-testid="player-speeds"]');
-            if (!video || !group) {
+            var wrap = document.querySelector('[data-testid="player-wrap"]');
+            if (!video || !group || !wrap) {
                 return;
             }
 
@@ -124,6 +135,18 @@
                 } catch (e) {}
             }
 
+            var hideTimer = null;
+
+            function revealSpeeds() {
+                wrap.classList.add('is-controls');
+                clearTimeout(hideTimer);
+                if (!video.paused) {
+                    hideTimer = setTimeout(function () {
+                        wrap.classList.remove('is-controls');
+                    }, 2200);
+                }
+            }
+
             apply(wanted());
             group.addEventListener('click', function (ev) {
                 var btn = ev.target.closest('button[data-rate]');
@@ -131,9 +154,20 @@
                     return;
                 }
                 apply(btn.getAttribute('data-rate'));
+                revealSpeeds();
+            });
+            wrap.addEventListener('mousemove', revealSpeeds);
+            wrap.addEventListener('pointerdown', revealSpeeds);
+            wrap.addEventListener('mouseleave', function () {
+                clearTimeout(hideTimer);
+                wrap.classList.remove('is-controls');
             });
             video.addEventListener('loadedmetadata', function () { apply(wanted()); });
-            video.addEventListener('play', function () { apply(wanted()); });
+            video.addEventListener('play', function () {
+                apply(wanted());
+                revealSpeeds();
+            });
+            video.addEventListener('pause', revealSpeeds);
             video.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
         })();
     </script>
