@@ -39,6 +39,7 @@ class HardeningTest extends TestCase
         $csp = (string) $pagina->headers->get('Content-Security-Policy');
         $this->assertStringContainsString('frame-ancestors *', $csp);
         $this->assertStringContainsString("media-src 'self'", $csp);
+        $this->assertMatchesRegularExpression("/script-src 'self' 'nonce-[A-Za-z0-9+\\/=]+'/", $csp);
         $this->assertSame('cross-origin', $pagina->headers->get('Cross-Origin-Resource-Policy'));
     }
 

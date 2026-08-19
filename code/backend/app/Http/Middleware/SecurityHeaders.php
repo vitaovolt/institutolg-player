@@ -10,6 +10,12 @@ class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $cspNonce = null;
+        if ($this->ehPlayerPublico($request)) {
+            $cspNonce = base64_encode(random_bytes(16));
+            view()->share('cspNonce', $cspNonce);
+        }
+
         /** @var Response $response */
         $response = $next($request);
 
@@ -26,7 +32,7 @@ class SecurityHeaders
             $imagens = implode(' ', array_merge(["'self'", 'data:'], $objetos));
             $response->headers->set(
                 'Content-Security-Policy',
-                "default-src 'self'; media-src {$midia}; img-src {$imagens}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src 'self'; frame-ancestors *; base-uri 'self'"
+                "default-src 'self'; script-src 'self' 'nonce-{$cspNonce}'; media-src {$midia}; img-src {$imagens}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src 'self'; frame-ancestors *; base-uri 'self'"
             );
         } else {
             $response->headers->set('X-Frame-Options', 'DENY');
