@@ -184,6 +184,38 @@ test.describe('F4 módulos', () => {
     expect(await pagina.text()).toContain('nodownload')
   })
 
+  test('detalhe: edita o nome de uma aula de teste', async ({ page }) => {
+    await entrarComoCarolina(page)
+    const criado = await page.evaluate(async () => {
+      const token = localStorage.getItem('ilg_token')
+      const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' }
+      const bib = await fetch('/api/v1/biblioteca', { headers })
+      const json = await bib.json()
+      const disciplinaId = json.data[0].turmas[0].disciplinas[0].id
+      const res = await fetch(`/api/v1/disciplinas/${disciplinaId}/aulas`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ titulo: `Aula editar ${Date.now()}` }),
+      })
+      const aula = await res.json()
+      return aula.data.id
+    })
+
+    await page.goto(`/aulas/${criado}`)
+    await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+    await page.getByTestId('btn-editar-aula').click()
+    await expect(page.getByTestId('pagina-editar-aula')).toBeVisible()
+    await expect(page.getByTestId('pagina-editar-aula')).toContainText('pasta compartilhada')
+    await expect(page.getByTestId('pagina-editar-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)
+
+    const novoNome = `Aula editada E2E ${Date.now()}`
+    await page.getByLabel('Nome da aula').fill(novoNome)
+    await page.getByTestId('btn-salvar-aula').click()
+    await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+    await expect(page.getByRole('heading', { name: novoNome })).toBeVisible()
+    await expect(page.getByTestId('toast')).toContainText('Nome da aula atualizado')
+  })
+
   test('detalhe: exclui a aula Revisão e volta à biblioteca', async ({ page }) => {
     await entrarComoCarolina(page)
     await page.getByTestId('aula-Revisão').getByRole('link', { name: 'Revisão' }).click()

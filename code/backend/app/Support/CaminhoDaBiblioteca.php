@@ -36,19 +36,26 @@ class CaminhoDaBiblioteca
         return self::prefixoDaDisciplina($disciplina).'/'.self::segmento($titulo).'.mp4';
     }
 
-    public static function chaveCapa(Aula $aula, string $extensao): string
+    public static function chaveCapaPara(Disciplina $disciplina, string $titulo, string $extensao): string
     {
         $ext = strtolower(ltrim($extensao, '.'));
         if ($ext === '') {
             $ext = 'jpg';
         }
 
-        return self::prefixo($aula).'/'.self::segmento((string) $aula->titulo).'_capa.'.$ext;
+        return self::prefixoDaDisciplina($disciplina).'/'.self::segmento($titulo).'_capa.'.$ext;
     }
 
-    public static function nomeArquivoDrive(Aula $aula, string $tipo = 'video', string $extensao = 'mp4'): string
+    public static function chaveCapa(Aula $aula, string $extensao): string
     {
-        $base = str_replace(['/', '\\'], '-', trim((string) $aula->titulo));
+        $aula->loadMissing('disciplina.turma.curso');
+
+        return self::chaveCapaPara($aula->disciplina, (string) $aula->titulo, $extensao);
+    }
+
+    public static function nomeArquivoDrivePara(string $titulo, string $tipo = 'video', string $extensao = 'mp4'): string
+    {
+        $base = str_replace(['/', '\\'], '-', trim($titulo));
         if ($base === '') {
             $base = 'aula';
         }
@@ -58,5 +65,10 @@ class CaminhoDaBiblioteca
         }
 
         return $base.'.mp4';
+    }
+
+    public static function nomeArquivoDrive(Aula $aula, string $tipo = 'video', string $extensao = 'mp4'): string
+    {
+        return self::nomeArquivoDrivePara((string) $aula->titulo, $tipo, $extensao);
     }
 }

@@ -274,6 +274,13 @@ export default function AulaDetalhePage() {
           rows={3}
         />
         <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            to={`/aulas/${aula.id}/editar`}
+            data-testid="btn-editar-aula"
+            className="rounded-lg border border-[var(--brand-line)] px-4 py-3 text-sm font-bold text-[var(--brand-primary)] no-underline"
+          >
+            Editar
+          </Link>
           <button
             type="button"
             data-testid="btn-copiar-html"

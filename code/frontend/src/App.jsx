@@ -10,6 +10,7 @@ import AulaDetalhePage from './pages/AulaDetalhePage.jsx'
 import ColarEduqPage from './pages/ColarEduqPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import OrganizarPage from './pages/OrganizarPage.jsx'
+import EditarAulaPage from './pages/EditarAulaPage.jsx'
 import SubstituirAulaPage from './pages/SubstituirAulaPage.jsx'
 
 export default function App() {
@@ -46,6 +47,16 @@ export default function App() {
                 <ProtectedRoute>
                   <AppShell>
                     <AulaDetalhePage />
+                  </AppShell>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/aulas/:aulaId/editar"
+              element={
+                <ProtectedRoute>
+                  <AppShell>
+                    <EditarAulaPage />
                   </AppShell>
                 </ProtectedRoute>
               }

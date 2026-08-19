@@ -10,6 +10,11 @@ export async function fetchAula(id) {
   return data
 }
 
+export async function atualizarAula(id, payload) {
+  const { data } = await client.put(`/aulas/${id}`, payload)
+  return data
+}
+
 export async function iniciarEnvio(disciplinaId, payload, chaveIdempotencia) {
   const { data } = await client.post(`/disciplinas/${disciplinaId}/envios`, payload, {
     headers: { 'Idempotency-Key': chaveIdempotencia },

@@ -452,6 +452,7 @@ paths:
           description: Aula
     put:
       operationId: atualizarAula
+      summary: Atualiza o nome no play; se a cópia na pasta compartilhada estiver ligada, também renomeia lá
       tags: [Aulas]
       requestBody:
         required: true
@@ -467,7 +468,9 @@ paths:
                   type: integer
       responses:
         '200':
-          description: Atualizada
+          description: Atualizada (falha na pasta compartilhada não impede o play)
+        '401':
+          description: Sem token
     delete:
       operationId: excluirAula
       summary: Remove a aula e o arquivo do play; a cópia na pasta compartilhada, se existir, permanece

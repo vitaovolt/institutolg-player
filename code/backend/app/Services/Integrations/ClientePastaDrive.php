@@ -4,6 +4,7 @@ namespace App\Services\Integrations;
 
 use App\Models\Aula;
 use App\Support\CaminhoDaBiblioteca;
+use App\Support\MoverArquivoDaBiblioteca;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -43,10 +44,128 @@ class ClientePastaDrive
         }
     }
 
+    public function copiaAtiva(): bool
+    {
+        if (filter_var(config('biblioteca.drive.pausado'), FILTER_VALIDATE_BOOLEAN)) {
+            return false;
+        }
+
+        if (config('biblioteca.drive.fake')) {
+            return true;
+        }
+
+        if ($this->usaContaDeServico()) {
+            return true;
+        }
+
+        return filled(config('biblioteca.drive.upload_url'));
+    }
+
+    public function renomearCopia(Aula $aula, string $tituloAnterior): void
+    {
+        if ((string) $aula->titulo === $tituloAnterior) {
+            return;
+        }
+
+        $aula->loadMissing('disciplina.turma.curso');
+
+        if (config('biblioteca.drive.fake')) {
+            $this->moverNoDiscoDrive($aula, $tituloAnterior);
+
+            return;
+        }
+
+        if ($this->usaContaDeServico()) {
+            $this->renomearNaContaDeServico($aula, $tituloAnterior);
+        }
+    }
+
     private function usaContaDeServico(): bool
     {
         return filled(config('biblioteca.drive.service_account_path'))
             && filled(config('biblioteca.drive.folder_id'));
+    }
+
+    private function moverNoDiscoDrive(Aula $aula, string $tituloAnterior): void
+    {
+        $disk = Storage::disk((string) config('biblioteca.disk_drive'));
+        $disciplina = $aula->disciplina;
+        $pares = [
+            CaminhoDaBiblioteca::chaveVideo($disciplina, $tituloAnterior) => CaminhoDaBiblioteca::chaveVideo($disciplina, (string) $aula->titulo),
+        ];
+        if (filled($aula->chave_capa)) {
+            $ext = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
+            $pares[CaminhoDaBiblioteca::chaveCapaPara($disciplina, $tituloAnterior, $ext)]
+                = CaminhoDaBiblioteca::chaveCapaPara($disciplina, (string) $aula->titulo, $ext);
+        }
+
+        foreach ($pares as $de => $para) {
+            MoverArquivoDaBiblioteca::seExistir($disk, $de, $para);
+        }
+    }
+
+    private function renomearNaContaDeServico(Aula $aula, string $tituloAnterior): void
+    {
+        $token = $this->tokenDaContaDeServico();
+        $pastaId = $this->garantirArvore($aula, $token);
+
+        $this->renomearArquivoNaPasta(
+            $token,
+            $pastaId,
+            CaminhoDaBiblioteca::nomeArquivoDrivePara($tituloAnterior, 'video'),
+            CaminhoDaBiblioteca::nomeArquivoDrive($aula, 'video'),
+        );
+
+        if (! filled($aula->chave_capa)) {
+            return;
+        }
+
+        $ext = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
+        $this->renomearArquivoNaPasta(
+            $token,
+            $pastaId,
+            CaminhoDaBiblioteca::nomeArquivoDrivePara($tituloAnterior, 'capa', $ext),
+            CaminhoDaBiblioteca::nomeArquivoDrive($aula, 'capa', $ext),
+        );
+    }
+
+    private function renomearArquivoNaPasta(string $token, string $pastaId, string $nomeAntigo, string $nomeNovo): void
+    {
+        if ($nomeAntigo === $nomeNovo) {
+            return;
+        }
+
+        $id = $this->encontrarArquivoNaPasta($token, $pastaId, $nomeAntigo);
+        if ($id === '') {
+            return;
+        }
+
+        Http::timeout((int) config('biblioteca.drive.timeout', 15))
+            ->withToken($token)
+            ->patch('https://www.googleapis.com/drive/v3/files/'.$id.'?supportsAllDrives=true', [
+                'name' => $nomeNovo,
+            ])
+            ->throw();
+    }
+
+    private function encontrarArquivoNaPasta(string $token, string $pastaId, string $nome): string
+    {
+        $q = "name='".$this->escapeDrive($nome)."' and '".$this->escapeDrive($pastaId)."' in parents and trashed=false";
+
+        $lista = Http::timeout(15)
+            ->retry(3, 200)
+            ->withToken($token)
+            ->get('https://www.googleapis.com/drive/v3/files', [
+                'q' => $q,
+                'pageSize' => 1,
+                'fields' => 'files(id,name)',
+                'supportsAllDrives' => 'true',
+                'includeItemsFromAllDrives' => 'true',
+                'corpora' => 'allDrives',
+            ])
+            ->throw();
+
+        return (string) data_get($lista->json(), 'files.0.id');
     }
 
     /**
