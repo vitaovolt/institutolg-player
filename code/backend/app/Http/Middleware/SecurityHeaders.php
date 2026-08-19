@@ -23,7 +23,7 @@ class SecurityHeaders
             $response->headers->set('Cross-Origin-Resource-Policy', 'cross-origin');
             $response->headers->set(
                 'Content-Security-Policy',
-                "default-src 'self'; media-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src 'self'; frame-ancestors *; base-uri 'self'"
+                "default-src 'self'; media-src {$this->fontesDeMidiaDoPlayer()}; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src 'self'; frame-ancestors *; base-uri 'self'"
             );
         } else {
             $response->headers->set('X-Frame-Options', 'DENY');
@@ -50,5 +50,34 @@ class SecurityHeaders
     private function ehPlayerPublico(Request $request): bool
     {
         return $request->is('assistir/*') || $request->is('eduq/*') || $request->is('capa/*');
+    }
+
+    /**
+     * Em produção o video do player aponta para URL temporária do objeto (outra origem).
+     * media-src só 'self' impede o play mesmo com o arquivo pronto.
+     */
+    private function fontesDeMidiaDoPlayer(): string
+    {
+        $fontes = ["'self'"];
+        $disco = (string) config('biblioteca.disk_aulas', 'aulas');
+        $cfg = config('filesystems.disks.'.$disco, []);
+
+        if (! is_array($cfg)) {
+            return implode(' ', $fontes);
+        }
+
+        foreach (['endpoint', 'url'] as $campo) {
+            $host = parse_url((string) ($cfg[$campo] ?? ''), PHP_URL_HOST);
+            if (! is_string($host) || $host === '' || preg_match('/^[A-Za-z0-9.-]+$/', $host) !== 1) {
+                continue;
+            }
+
+            $origem = 'https://'.$host;
+            if (! in_array($origem, $fontes, true)) {
+                $fontes[] = $origem;
+            }
+        }
+
+        return implode(' ', $fontes);
     }
 }

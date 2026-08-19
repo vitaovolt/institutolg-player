@@ -36,8 +36,28 @@ class HardeningTest extends TestCase
 
         $pagina->assertOk();
         $this->assertNotSame('DENY', (string) $pagina->headers->get('X-Frame-Options'));
-        $this->assertStringContainsString('frame-ancestors *', (string) $pagina->headers->get('Content-Security-Policy'));
+        $csp = (string) $pagina->headers->get('Content-Security-Policy');
+        $this->assertStringContainsString('frame-ancestors *', $csp);
+        $this->assertStringContainsString("media-src 'self'", $csp);
         $this->assertSame('cross-origin', $pagina->headers->get('Cross-Origin-Resource-Policy'));
+    }
+
+    public function test_player_csp_libera_host_do_objeto_de_play(): void
+    {
+        $this->fakeDiscosDaBiblioteca();
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'CSP play']));
+
+        config([
+            'filesystems.disks.aulas.endpoint' => 'https://objetos.exemplo.test',
+            'filesystems.disks.aulas.url' => 'https://objetos.exemplo.test',
+        ]);
+
+        $pagina = $this->get('/assistir/'.$aula->token_publico);
+
+        $pagina->assertOk();
+        $csp = (string) $pagina->headers->get('Content-Security-Policy');
+        $this->assertStringContainsString("media-src 'self' https://objetos.exemplo.test", $csp);
+        $this->assertStringContainsString('frame-ancestors *', $csp);
     }
 
     public function test_cors_production_sem_frontend_url_nao_libera_origem(): void

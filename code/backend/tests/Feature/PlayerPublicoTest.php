@@ -29,7 +29,9 @@ class PlayerPublicoTest extends TestCase
             ->assertSee('data-testid="player-video"', false)
             ->assertDontSee('download=', false)
             ->assertHeaderMissing('X-Frame-Options');
-        $this->assertStringContainsString('frame-ancestors *', (string) $pagina->headers->get('Content-Security-Policy'));
+        $csp = (string) $pagina->headers->get('Content-Security-Policy');
+        $this->assertStringContainsString('frame-ancestors *', $csp);
+        $this->assertStringContainsString("media-src 'self'", $csp);
 
         $src = [];
         preg_match('/src="([^"]+)"/', $pagina->getContent(), $src);
