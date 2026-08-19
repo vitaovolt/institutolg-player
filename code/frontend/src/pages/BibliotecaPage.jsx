@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { excluirAula } from '../api/aulas'
 import { fetchBiblioteca, fetchResumoMes } from '../api/biblioteca'
 import Chevron from '../components/arvore/Chevron.jsx'
 import ControlesArvore from '../components/arvore/ControlesArvore.jsx'
-import { classesBotao } from '../components/ui/Button.jsx'
+import Button, { classesBotao } from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
 import {
   caminhoDoFoco,
@@ -57,6 +58,8 @@ export default function BibliotecaPage() {
   const navigate = useNavigate()
   const { show: mostrarToast } = useToast()
   const avisoAulaRef = useRef(false)
+  const submittingRef = useRef(false)
+  const [excluindoId, setExcluindoId] = useState(null)
   const turmaFoco = searchParams.get('turma')
   const disciplinaFoco = searchParams.get('disciplina')
   const aulaFoco = searchParams.get('aula')
@@ -141,6 +144,31 @@ export default function BibliotecaPage() {
       (turmaFoco && document.querySelector(`[data-turma-id="${turmaFoco}"]`))
     alvo?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [arvore, aberto, disciplinaFoco, turmaFoco])
+
+  async function excluirDaLista(aula) {
+    if (submittingRef.current) return
+    const ok = window.confirm(
+      `Excluir a aula ${aula.titulo}? O vídeo deixa de tocar. A cópia na pasta compartilhada, se existir, permanece por enquanto.`,
+    )
+    if (!ok) return
+    submittingRef.current = true
+    setExcluindoId(aula.id)
+    try {
+      await excluirAula(aula.id)
+      const [bib, mes] = await Promise.all([fetchBiblioteca(), fetchResumoMes()])
+      aplicarArvore(bib.data)
+      setResumo(mes.data)
+      mostrarToast('Aula excluída.')
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Não foi possível excluir. Tente de novo.'
+      mostrarToast(msg, 'erro')
+    } finally {
+      submittingRef.current = false
+      setExcluindoId(null)
+    }
+  }
+
+  const ocupado = excluindoId != null
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-10" data-testid="pagina-biblioteca">
@@ -271,6 +299,13 @@ export default function BibliotecaPage() {
                                                 {rotuloStatusPreparo(aula.status_preparo)}
                                                 {aula.publicada ? ' · publicada' : ''}
                                               </span>
+                                              <Button
+                                                variant="danger"
+                                                disabled={ocupado}
+                                                onClick={() => excluirDaLista(aula)}
+                                              >
+                                                {ocupado && excluindoId === aula.id ? 'Processando…' : 'Excluir'}
+                                              </Button>
                                             </li>
                                           ))}
                                         </ul>

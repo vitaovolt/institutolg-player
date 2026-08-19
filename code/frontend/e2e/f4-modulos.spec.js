@@ -183,4 +183,24 @@ test.describe('F4 módulos', () => {
     expect(pagina.headers()['x-frame-options'] || '').not.toBe('DENY')
     expect(await pagina.text()).toContain('nodownload')
   })
+
+  test('detalhe: exclui a aula Revisão e volta à biblioteca', async ({ page }) => {
+    await entrarComoCarolina(page)
+    await page.getByTestId('aula-Revisão').getByRole('link', { name: 'Revisão' }).click()
+    await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('Revisão')
+      expect(dialog.message()).toContain('pasta compartilhada')
+      expect(dialog.message()).not.toMatch(/R2|AWS|S3|Cloudflare/i)
+      await dialog.accept()
+    })
+
+    await page.getByTestId('btn-excluir-aula').click()
+    await expect(page.getByTestId('pagina-biblioteca')).toBeVisible()
+    await expect(page.getByTestId('aula-Revisão')).toHaveCount(0)
+    await expect(page.getByTestId('aula-Introdução')).toBeVisible()
+    await expect(page.getByTestId('aula-Casos clínicos')).toBeVisible()
+    await expect(page.getByTestId('toast')).toContainText('Aula excluída')
+  })
 })

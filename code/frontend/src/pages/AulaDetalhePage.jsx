@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { despublicarAula, fetchAula, publicarAula, removerCapa, reprocessarDrive, salvarCapa } from '../api/aulas'
+import { despublicarAula, excluirAula, fetchAula, publicarAula, removerCapa, reprocessarDrive, salvarCapa } from '../api/aulas'
 import { fetchResumoMes } from '../api/biblioteca'
 import Button from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
@@ -88,6 +88,27 @@ export default function AulaDetalhePage() {
       const msg = err.response?.data?.message || err.message || 'Não foi possível concluir. Tente de novo.'
       mostrarToast(msg, 'erro')
     } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+      setAcao('')
+    }
+  }
+
+  async function excluir() {
+    if (submittingRef.current) return
+    const ok = window.confirm(
+      `Excluir a aula ${aula.titulo}? O vídeo deixa de tocar. A cópia na pasta compartilhada, se existir, permanece por enquanto.`,
+    )
+    if (!ok) return
+    submittingRef.current = true
+    setSubmitting(true)
+    setAcao('excluir')
+    try {
+      await excluirAula(aula.id)
+      navigate('/biblioteca', { state: { toast: 'Aula excluída.' } })
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Não foi possível excluir. Tente de novo.'
+      mostrarToast(msg, 'erro')
       submittingRef.current = false
       setSubmitting(false)
       setAcao('')
@@ -304,6 +325,17 @@ export default function AulaDetalhePage() {
             </button>
           ) : null}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <Button
+          variant="danger"
+          data-testid="btn-excluir-aula"
+          disabled={ocupado}
+          onClick={excluir}
+        >
+          {ocupado && acao === 'excluir' ? 'Processando…' : 'Excluir aula'}
+        </Button>
       </section>
 
       <p className="mt-5 flex flex-wrap gap-4 text-sm">

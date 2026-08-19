@@ -470,10 +470,13 @@ paths:
           description: Atualizada
     delete:
       operationId: excluirAula
+      summary: Remove a aula e o arquivo do play; a cópia na pasta compartilhada, se existir, permanece
       tags: [Aulas]
       responses:
         '200':
           description: Removida
+        '401':
+          description: Sem token
   /aulas/{aula}/envios/substituir:
     parameters:
       - $ref: '#/components/parameters/AulaId'

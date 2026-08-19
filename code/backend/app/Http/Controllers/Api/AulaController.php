@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\ExcluirAula;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAulaRequest;
 use App\Http\Requests\UpdateAulaRequest;
@@ -47,11 +48,11 @@ class AulaController extends Controller
         return $this->ok(AulaResource::make($aula->fresh())->resolve(), 'Aula atualizada');
     }
 
-    public function destroy(Aula $aula): JsonResponse
+    public function destroy(Aula $aula, ExcluirAula $excluirAula): JsonResponse
     {
         $this->authorize('delete', $aula);
 
-        $aula->delete();
+        $excluirAula->handle($aula);
 
         return $this->ok(null, 'Aula removida');
     }

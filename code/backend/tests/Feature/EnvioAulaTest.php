@@ -293,6 +293,7 @@ class EnvioAulaTest extends TestCase
                 Storage::disk((string) config('biblioteca.disk_aulas'))
                     ->put($aula->chave_arquivo, ValidarExportMp4::amostraValida());
             });
+            $mock->shouldReceive('abortar')->zeroOrMoreTimes();
         });
 
         $disciplina = Disciplina::factory()->create();

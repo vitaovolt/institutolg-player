@@ -84,3 +84,8 @@ export async function removerCapa(aulaId) {
   const { data } = await client.delete(`/aulas/${aulaId}/capa`)
   return data
 }
+
+export async function excluirAula(id) {
+  const { data } = await client.delete(`/aulas/${id}`)
+  return data
+}

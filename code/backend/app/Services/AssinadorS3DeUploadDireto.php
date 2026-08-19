@@ -64,6 +64,24 @@ class AssinadorS3DeUploadDireto implements AssinadorDeUploadDireto
         ]);
     }
 
+    public function abortar(Aula $aula): void
+    {
+        if (blank($aula->s3_upload_id) || blank($aula->chave_arquivo)) {
+            return;
+        }
+
+        try {
+            $cfg = $this->configDisco();
+            $this->cliente()->abortMultipartUpload([
+                'Bucket' => $cfg['bucket'],
+                'Key' => $aula->chave_arquivo,
+                'UploadId' => $aula->s3_upload_id,
+            ]);
+        } catch (\Throwable) {
+            // envio já fechado ou objeto já no destino
+        }
+    }
+
     private function cliente(): S3Client
     {
         $cfg = $this->configDisco();

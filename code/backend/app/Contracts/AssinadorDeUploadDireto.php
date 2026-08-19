@@ -14,4 +14,6 @@ interface AssinadorDeUploadDireto
      * @param  list<array{part_number: int, etag: string}>  $partes
      */
     public function completar(Aula $aula, array $partes): void;
+
+    public function abortar(Aula $aula): void;
 }
