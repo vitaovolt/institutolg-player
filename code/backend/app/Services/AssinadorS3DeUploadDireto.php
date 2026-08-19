@@ -81,6 +81,10 @@ class AssinadorS3DeUploadDireto implements AssinadorDeUploadDireto
                 'key' => $cfg['key'],
                 'secret' => $cfg['secret'],
             ],
+            'http' => [
+                'connect_timeout' => 10,
+                'timeout' => 60,
+            ],
         ]);
     }
 

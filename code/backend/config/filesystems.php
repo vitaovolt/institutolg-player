@@ -58,6 +58,10 @@ return [
             'visibility' => 'private',
             'throw' => true,
             'report' => false,
+            'http' => [
+                'connect_timeout' => 10,
+                'timeout' => 43200,
+            ],
         ] : [
             'driver' => 'local',
             'root' => storage_path('app/private/aulas'),

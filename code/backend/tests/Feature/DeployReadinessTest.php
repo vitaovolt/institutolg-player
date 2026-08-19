@@ -98,6 +98,7 @@ class DeployReadinessTest extends TestCase
         $this->assertStringContainsString('--queue=biblioteca', $unit);
         $this->assertStringContainsString('queue:work', $unit);
         $this->assertStringContainsString('--timeout=43200', $unit);
+        $this->assertStringContainsString('--max-time=43200', $unit);
         $this->assertStringNotContainsString('queue:work database --sleep', $unit);
     }
 

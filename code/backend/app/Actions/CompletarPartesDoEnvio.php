@@ -4,10 +4,12 @@ namespace App\Actions;
 
 use App\Contracts\AssinadorDeUploadDireto;
 use App\Models\Aula;
+use App\Support\LerInicioDoArquivoDaBiblioteca;
 use App\Support\ModoEnvioArquivo;
 use App\Support\ValidarExportMp4;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Throwable;
 
 class CompletarPartesDoEnvio
 {
@@ -36,18 +38,24 @@ class CompletarPartesDoEnvio
             throw new HttpException(422, 'O envio das partes ainda não começou.');
         }
 
-        $this->assinador->completar($aula, $partes);
-
         $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
 
-        if (! $disk->exists($aula->chave_arquivo)) {
+        try {
+            $this->assinador->completar($aula, $partes);
+        } catch (Throwable $e) {
+            if (! $aula->chave_arquivo || ! $disk->exists($aula->chave_arquivo)) {
+                throw $e;
+            }
+        }
+
+        if (! $aula->chave_arquivo || ! $disk->exists($aula->chave_arquivo)) {
             throw new HttpException(422, 'O arquivo ainda não chegou. Envie o MP4 de novo.');
         }
 
-        $stream = $disk->readStream($aula->chave_arquivo);
-        $header = $stream ? (string) fread($stream, 32) : '';
-        if (is_resource($stream)) {
-            fclose($stream);
+        try {
+            $header = LerInicioDoArquivoDaBiblioteca::bytes($aula->chave_arquivo);
+        } catch (Throwable) {
+            throw new HttpException(503, 'O arquivo chegou, mas não deu para conferir agora. Tente de novo.');
         }
 
         if (! ValidarExportMp4::pareceMp4($header)) {

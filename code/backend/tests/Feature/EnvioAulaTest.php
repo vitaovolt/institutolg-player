@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Actions\RetomarEnvioDaAula;
 use App\Jobs\PrepararVersaoDaAulaJob;
 use App\Models\Aula;
 use App\Models\Disciplina;
 use App\Support\CaminhoDaBiblioteca;
+use App\Support\LerInicioDoArquivoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Database\Seeders\BibliotecaPilotoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -313,5 +315,35 @@ class EnvioAulaTest extends TestCase
         $aula = Aula::query()->findOrFail($iniciar->json('data.aula.id'));
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
         $this->assertSame(strlen(ValidarExportMp4::amostraValida()), $aula->tamanho_bytes);
+    }
+
+    public function test_le_so_o_inicio_do_arquivo(): void
+    {
+        $mp4 = ValidarExportMp4::amostraValida();
+        Storage::disk((string) config('biblioteca.disk_aulas'))->put('aula-grande.mp4', $mp4.str_repeat('x', 1000));
+
+        $inicio = LerInicioDoArquivoDaBiblioteca::bytes('aula-grande.mp4', 32);
+        $this->assertSame(substr($mp4.str_repeat('x', 1000), 0, 32), $inicio);
+        $this->assertTrue(ValidarExportMp4::pareceMp4($inicio));
+    }
+
+    public function test_retoma_envio_quando_o_arquivo_ja_esta_no_disco(): void
+    {
+        $mp4 = ValidarExportMp4::amostraValida();
+        $aula = Aula::factory()->create([
+            'status_preparo' => 'enviando',
+            'chave_arquivo' => 'curso/turma/disc/aula.mp4',
+            'token_upload' => 'tok-retoma',
+            's3_upload_id' => 'up-ja-completo',
+        ]);
+        Storage::disk((string) config('biblioteca.disk_aulas'))->put($aula->chave_arquivo, $mp4);
+
+        $pronta = app(RetomarEnvioDaAula::class)->handle($aula);
+
+        $this->assertSame('pronta', $pronta->status_preparo);
+        $this->assertSame($aula->chave_arquivo, $pronta->chave_play);
+        $this->assertSame(strlen($mp4), $pronta->tamanho_bytes);
+        $this->assertNull($pronta->s3_upload_id);
+        $this->assertNull($pronta->token_upload);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Jobs\CopiarAulaParaDriveJob;
 use App\Models\Aula;
+use App\Support\LerInicioDoArquivoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Illuminate\Support\Facades\Storage;
 
@@ -27,10 +28,15 @@ class PrepararVersaoDaAula
             return $aula->fresh();
         }
 
-        $stream = $disk->readStream($aula->chave_arquivo);
-        $header = $stream ? (string) fread($stream, 32) : '';
-        if (is_resource($stream)) {
-            fclose($stream);
+        try {
+            $header = LerInicioDoArquivoDaBiblioteca::bytes($aula->chave_arquivo);
+        } catch (\Throwable) {
+            $aula->update([
+                'status_preparo' => 'erro',
+                'mensagem_erro' => 'Não encontramos o arquivo. Envie o export MP4 de novo.',
+            ]);
+
+            return $aula->fresh();
         }
 
         if (! ValidarExportMp4::pareceMp4($header)) {

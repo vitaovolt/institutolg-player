@@ -25,3 +25,24 @@ Artisan::command('biblioteca:fila', function () {
         '--verbose' => true,
     ]);
 })->purpose('Worker da fila da biblioteca. Terminal fica ocupado de propósito.');
+
+Artisan::command('biblioteca:retomar-envio {aula}', function () {
+    $id = (int) $this->argument('aula');
+    $aula = \App\Models\Aula::query()->find($id);
+    if ($aula === null) {
+        $this->error('Aula não encontrada.');
+
+        return 1;
+    }
+
+    try {
+        $aula = app(\App\Actions\RetomarEnvioDaAula::class)->handle($aula);
+    } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        $this->error($e->getMessage());
+
+        return 1;
+    }
+    $this->info("Aula {$aula->id}: {$aula->status_preparo}");
+
+    return 0;
+})->purpose('Retoma envio quando o arquivo já está no objeto e a aula ficou em enviando.');

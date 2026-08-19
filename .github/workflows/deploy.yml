@@ -79,11 +79,9 @@ jobs:
           sudo chmod +x "$DEPLOY_PATH/code/backend/artisan"
 
           UNIT=/etc/systemd/system/institutolg-player-queue.service
-          if [ ! -f "$UNIT" ]; then
-            sudo cp "$DEPLOY_PATH/deploy/systemd/institutolg-player-queue.service" "$UNIT"
-            sudo systemctl daemon-reload
-            sudo systemctl enable institutolg-player-queue
-          fi
+          sudo cp "$DEPLOY_PATH/deploy/systemd/institutolg-player-queue.service" "$UNIT"
+          sudo systemctl daemon-reload
+          sudo systemctl enable institutolg-player-queue
 
           sudo systemctl reload php8.2-fpm 2>/dev/null || sudo systemctl reload php8.3-fpm 2>/dev/null || true
           sudo systemctl restart institutolg-player-queue
