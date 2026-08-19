@@ -7,6 +7,7 @@ use App\Models\Curso;
 use App\Models\Disciplina;
 use App\Models\Turma;
 use App\Support\CaminhoDaBiblioteca;
+use App\Support\LerBlocoDoStream;
 use App\Support\MoverArquivoDaBiblioteca;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
@@ -277,17 +278,36 @@ class ClientePastaDrive
         }
 
         $chunk = 8 * 1024 * 1024;
+        $minimo = 256 * 1024;
         $offset = 0;
         $id = 'ok';
         $timeout = max(60, (int) config('biblioteca.drive.timeout', 15));
 
         while (! feof($stream)) {
-            $bloco = fread($stream, $chunk);
-            if ($bloco === false || $bloco === '') {
+            $alvo = $chunk;
+            if ($tamanho > 0) {
+                $restante = $tamanho - $offset;
+                if ($restante <= 0) {
+                    break;
+                }
+                $alvo = (int) min($chunk, $restante);
+            }
+
+            $bloco = LerBlocoDoStream::handle($stream, $alvo);
+            if ($bloco === '') {
                 break;
             }
+
             $len = strlen($bloco);
             $fim = $offset + $len - 1;
+            $ehFinal = $tamanho > 0
+                ? ($offset + $len >= $tamanho)
+                : feof($stream);
+
+            if (! $ehFinal && ($len < $minimo || $len % $minimo !== 0)) {
+                throw new RuntimeException('A leitura do arquivo veio incompleta. Tente de novo.');
+            }
+
             $resposta = Http::timeout($timeout)
                 ->withOptions(['allow_redirects' => false])
                 ->withBody($bloco, $mime)

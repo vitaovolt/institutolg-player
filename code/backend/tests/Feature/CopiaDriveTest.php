@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\PrepararVersaoDaAula;
 use App\Jobs\CopiarAulaParaDriveJob;
 use App\Jobs\PrepararVersaoDaAulaJob;
 use App\Models\Aula;
@@ -9,9 +10,11 @@ use App\Services\Integrations\ClientePastaDrive;
 use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\StreamLeituraCurta;
 use Tests\TestCase;
 
 class CopiaDriveTest extends TestCase
@@ -121,7 +124,7 @@ class CopiaDriveTest extends TestCase
             'biblioteca.drive.service_account_path' => $json,
             'biblioteca.drive.folder_id' => 'pasta-piloto',
         ]);
-        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+        Http::fake(function (Request $request) {
             if ($request->url() === 'https://oauth2.googleapis.com/token') {
                 return Http::response(['access_token' => 'tok-drive'], 200);
             }
@@ -163,6 +166,70 @@ class CopiaDriveTest extends TestCase
                 && str_contains($request->url(), 'drive/v3/files?supportsAllDrives=true')
                 && ! str_contains($request->url(), 'upload');
         }, 3);
+        @unlink($json);
+    }
+
+    public function test_conta_de_servico_junta_pacotes_curtos_antes_de_enviar(): void
+    {
+        $json = $this->arquivoContaDeServicoTemporario();
+        config([
+            'biblioteca.drive.fake' => false,
+            'biblioteca.drive.upload_url' => '',
+            'biblioteca.drive.service_account_path' => $json,
+            'biblioteca.drive.folder_id' => 'pasta-piloto',
+        ]);
+
+        $bytes = str_repeat('a', 400 * 1024);
+        Http::fake(function (Request $request) use ($bytes) {
+            if ($request->url() === 'https://oauth2.googleapis.com/token') {
+                return Http::response(['access_token' => 'tok-drive'], 200);
+            }
+            if (str_contains($request->url(), 'uploadType=resumable')) {
+                return Http::response('', 200, [
+                    'Location' => 'https://www.googleapis.com/upload/drive/v3/files?upload_id=abc',
+                ]);
+            }
+            if (str_contains($request->url(), 'upload_id=abc') && $request->method() === 'PUT') {
+                $len = strlen($request->body());
+                $range = $request->header('Content-Range')[0] ?? '';
+                $final = false;
+                if (preg_match('/bytes (\d+)-(\d+)\/(\d+)/', $range, $m) === 1) {
+                    $final = ((int) $m[2] + 1) === (int) $m[3];
+                }
+                if ($len < 262144 && ! $final) {
+                    return Http::response(
+                        'Invalid request. The number of bytes uploaded is required to be equal or greater than 262144, except for the final request.',
+                        400,
+                    );
+                }
+
+                $this->assertSame(strlen($bytes), $len);
+
+                return Http::response(['id' => 'arq-drive-pacotes'], 200);
+            }
+            if (str_contains($request->url(), 'www.googleapis.com/drive/v3/files') && $request->method() === 'GET') {
+                return Http::response(['files' => []], 200);
+            }
+            if (str_contains($request->url(), 'www.googleapis.com/drive/v3/files') && $request->method() === 'POST') {
+                return Http::response(['id' => 'pasta-criada'], 200);
+            }
+
+            return Http::response(['message' => 'inesperado'], 500);
+        });
+
+        if (! in_array('leituracurta', stream_get_wrappers(), true)) {
+            stream_wrapper_register('leituracurta', StreamLeituraCurta::class);
+        }
+        $ctx = stream_context_create([
+            'leituracurta' => ['data' => $bytes, 'max' => 1024],
+        ]);
+        $stream = fopen('leituracurta://aula', 'rb', false, $ctx);
+        $this->assertIsResource($stream);
+
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'Cópia pacotes']));
+        $id = app(ClientePastaDrive::class)->enviarCopia($aula, $stream, strlen($bytes));
+
+        $this->assertSame('arq-drive-pacotes', $id);
         @unlink($json);
     }
 
@@ -237,7 +304,7 @@ class CopiaDriveTest extends TestCase
         Storage::disk((string) config('biblioteca.disk_aulas'))
             ->put($aula->chave_arquivo, ValidarExportMp4::amostraValida());
 
-        (new PrepararVersaoDaAulaJob($aula->id))->handle(app(\App\Actions\PrepararVersaoDaAula::class));
+        (new PrepararVersaoDaAulaJob($aula->id))->handle(app(PrepararVersaoDaAula::class));
 
         $this->assertDatabaseHas('aulas', [
             'id' => $aula->id,
