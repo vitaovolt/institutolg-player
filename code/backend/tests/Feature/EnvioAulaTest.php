@@ -325,6 +325,11 @@ class EnvioAulaTest extends TestCase
         $inicio = LerInicioDoArquivoDaBiblioteca::bytes('aula-grande.mp4', 32);
         $this->assertSame(substr($mp4.str_repeat('x', 1000), 0, 32), $inicio);
         $this->assertTrue(ValidarExportMp4::pareceMp4($inicio));
+
+        $fluxo = LerInicioDoArquivoDaBiblioteca::stream('aula-grande.mp4');
+        $this->assertTrue(is_resource($fluxo));
+        $this->assertSame($mp4, fread($fluxo, strlen($mp4)));
+        fclose($fluxo);
     }
 
     public function test_retoma_envio_quando_o_arquivo_ja_esta_no_disco(): void

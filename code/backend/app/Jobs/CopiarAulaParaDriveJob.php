@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Aula;
 use App\Services\Integrations\ClientePastaDrive;
+use App\Support\LerInicioDoArquivoDaBiblioteca;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -54,19 +55,14 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
             $disk = Storage::disk((string) config('biblioteca.disk_aulas'));
 
             try {
-                $stream = $disk->readStream($aula->chave_play);
-                if ($stream === false || $stream === null) {
-                    throw new \RuntimeException('Não foi possível ler o arquivo para a cópia.');
-                }
+                $stream = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_play);
                 $tamanho = (int) $disk->size($aula->chave_play);
                 $cliente->enviarCopia($aula, $stream, $tamanho, 'video', 'mp4');
 
                 if (filled($aula->chave_capa) && $disk->exists($aula->chave_capa)) {
-                    $capa = $disk->readStream($aula->chave_capa);
-                    if ($capa !== false && $capa !== null) {
-                        $ext = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
-                        $cliente->enviarCopia($aula, $capa, (int) $disk->size($aula->chave_capa), 'capa', $ext);
-                    }
+                    $capa = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_capa);
+                    $ext = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
+                    $cliente->enviarCopia($aula, $capa, (int) $disk->size($aula->chave_capa), 'capa', $ext);
                 }
                 $aula->update([
                     'status_drive' => 'ok',
