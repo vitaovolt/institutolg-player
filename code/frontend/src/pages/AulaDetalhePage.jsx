@@ -243,6 +243,10 @@ export default function AulaDetalhePage() {
         </Link>
       </p>
 
+      <p className="mt-3 text-sm text-[var(--brand-muted)]">
+        O envio já publica a aula. Só use Publicar de novo se tiver despublicado.
+      </p>
+
       {sincronizandoDrive ? (
         <p className="mt-4 rounded-lg border border-[#F0D48A] bg-[#FFF8E8] px-3 py-2 text-sm font-semibold text-[#8A5A00]">
           Cópia na pasta compartilhada em andamento. O aluno já pode assistir se o HTML estiver na Eduq.

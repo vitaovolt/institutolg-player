@@ -135,6 +135,8 @@ class EnvioAulaTest extends TestCase
         $aula = Aula::query()->findOrFail($aulaId);
         $aula->load('disciplina.turma.curso');
         $this->assertSame('pronta', $aula->status_preparo);
+        $this->assertTrue($aula->publicada);
+        $this->assertNotNull($aula->publicada_em);
         $this->assertSame('pendente', $aula->status_drive);
         $this->assertNotEmpty($aula->chave_play);
         $this->assertSame($aula->chave_arquivo, $aula->chave_play);
@@ -145,7 +147,8 @@ class EnvioAulaTest extends TestCase
 
         $show = $this->getJson("/api/v1/aulas/{$aulaId}")->assertOk();
         $show->assertJsonPath('data.status_preparo', 'pronta')
-            ->assertJsonPath('data.pronta_para_assistir', true);
+            ->assertJsonPath('data.pronta_para_assistir', true)
+            ->assertJsonPath('data.publicada', true);
         $this->assertArrayNotHasKey('chave_play', $show->json('data'));
         $this->assertArrayNotHasKey('token_upload', $show->json('data'));
     }

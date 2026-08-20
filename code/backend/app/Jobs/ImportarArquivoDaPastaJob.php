@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\PublicarAulaSeNova;
 use App\Actions\SalvarCapaDaAula;
 use App\Models\Aula;
 use App\Models\Disciplina;
@@ -47,7 +48,7 @@ class ImportarArquivoDaPastaJob implements ShouldQueue, ShouldBeUnique
         return 'importar-arquivo-'.$chave;
     }
 
-    public function handle(ClientePastaDrive $cliente, SalvarCapaDaAula $salvarCapa): void
+    public function handle(ClientePastaDrive $cliente, SalvarCapaDaAula $salvarCapa, PublicarAulaSeNova $publicarSeNova): void
     {
         $disciplina = Disciplina::query()->with('turma.curso')->find($this->disciplinaId);
         if ($disciplina === null) {
@@ -62,6 +63,7 @@ class ImportarArquivoDaPastaJob implements ShouldQueue, ShouldBeUnique
         if ($this->driveFileId !== '') {
             $this->importarVideo($aula, $cliente);
             $aula = $aula->fresh() ?? $aula;
+            $aula = $publicarSeNova->handle($aula);
         }
 
         if (filled($this->capaFileId) && $aula->estaProntaParaAssistir() && blank($aula->chave_capa)) {

@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Actions\PrepararVersaoDaAula;
 use App\Models\Aula;
+use App\Support\ValidarExportMp4;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PublicacaoAulaTest extends TestCase
@@ -87,5 +90,50 @@ class PublicacaoAulaTest extends TestCase
 
         $this->postJson("/api/v1/aulas/{$aula->id}/despublicar")->assertOk();
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'publicada' => false]);
+        $this->assertNotNull($aula->fresh()->publicada_em);
+    }
+
+    public function test_preparar_publica_aula_nova_automaticamente(): void
+    {
+        $aula = Aula::factory()->preparando()->create([
+            'titulo' => 'Primeiro envio',
+            'chave_arquivo' => 'origens/primeiro.mp4',
+        ]);
+        Storage::disk((string) config('biblioteca.disk_aulas'))
+            ->put($aula->chave_arquivo, ValidarExportMp4::amostraValida());
+
+        app(PrepararVersaoDaAula::class)->handle($aula);
+
+        $aula = $aula->fresh();
+        $this->assertSame('pronta', $aula->status_preparo);
+        $this->assertTrue($aula->publicada);
+        $this->assertNotNull($aula->publicada_em);
+    }
+
+    public function test_apos_despublicar_preparar_de_novo_nao_republica(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'Foi despublicada']));
+        $publicadaEm = $aula->publicada_em;
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/despublicar")->assertOk();
+        $this->assertFalse($aula->fresh()->publicada);
+
+        $novaChave = 'origens/substituicao.mp4';
+        Storage::disk((string) config('biblioteca.disk_aulas'))
+            ->put($novaChave, ValidarExportMp4::amostraValida());
+        $aula->update([
+            'status_preparo' => 'preparando',
+            'chave_arquivo' => $novaChave,
+            'chave_play' => null,
+        ]);
+
+        app(PrepararVersaoDaAula::class)->handle($aula->fresh());
+
+        $aula = $aula->fresh();
+        $this->assertSame('pronta', $aula->status_preparo);
+        $this->assertFalse($aula->publicada);
+        $this->assertNotNull($aula->publicada_em);
+        $this->assertTrue($publicadaEm->equalTo($aula->publicada_em));
     }
 }

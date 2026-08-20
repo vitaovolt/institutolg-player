@@ -21,7 +21,7 @@ test('login → enviar MP4 → volta à biblioteca da turma → Pronta', async (
   await expect(page).toHaveURL(/turma=/)
   await expect(page.getByTestId('turma-Turma 2026-A')).toBeVisible()
   await expect(page.getByTestId('disciplina-Cardiologia')).toContainText('Aula F3 Playwright')
-  await expect(page.getByTestId('disciplina-Cardiologia')).toContainText('Aula F3 Playwright · Pronta', { timeout: 45_000 })
+  await expect(page.getByTestId('disciplina-Cardiologia')).toContainText('Aula F3 Playwright · Pronta · publicada', { timeout: 45_000 })
   await expect(page.getByTestId('toast')).toContainText('Aula pronta')
 })
 

@@ -172,7 +172,7 @@ export default function EnviarAulaPage() {
       if (!aulaId) throw new Error('Não encontramos a aula para tentar de novo.')
       const payload = await reprocessarEnvio(aulaId)
       await esperarAulaPronta(payload.data.id)
-      irParaBibliotecaDaTurma(payload.data.id, 'Aula pronta para a biblioteca.')
+      irParaBibliotecaDaTurma(payload.data.id, 'Aula pronta. Já está publicada para o aluno.')
     } catch (err) {
       submittingRef.current = false
       setSubmitting(false)
@@ -222,7 +222,7 @@ export default function EnviarAulaPage() {
       </h1>
       <p className="mt-2 text-[var(--brand-muted)]">
         {cursoNome} · {turmaNome}. Só o export MP4 da aula pronta — até 35 GB. Não envie o arquivo de edição do programa.
-        Depois do envio você volta à biblioteca desta turma.
+        Depois do envio você volta à biblioteca desta turma. A aula já fica publicada para o aluno.
       </p>
 
       <form

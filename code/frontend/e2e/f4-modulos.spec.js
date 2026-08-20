@@ -261,6 +261,7 @@ test.describe('F4 módulos', () => {
     await page.getByTestId(`aula-${titulo}`).getByRole('link', { name: titulo }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
     await expect(page.getByTestId('btn-sync-drive')).toBeVisible({ timeout: 45_000 })
+    await expect(page.getByTestId('status-publicada')).toHaveText('Sim')
     await expect(page.getByTestId('btn-sync-drive')).toHaveText('Sincronizar com Google Drive')
     await expect(page.getByTestId('ajuda-sync-drive')).toContainText('Não apaga outros arquivos da pasta')
     await expect(page.getByTestId('pagina-detalhe-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)

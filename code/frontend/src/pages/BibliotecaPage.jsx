@@ -114,7 +114,7 @@ export default function BibliotecaPage() {
           if (!avisoAulaRef.current) {
             avisoAulaRef.current = true
             mostrarToast(
-              status === 'pronta' ? 'Aula pronta para a biblioteca.' : 'A preparação falhou. Envie o MP4 de novo.',
+              status === 'pronta' ? 'Aula pronta. Já está publicada para o aluno.' : 'A preparação falhou. Envie o MP4 de novo.',
               status === 'pronta' ? 'ok' : 'erro',
             )
           }
@@ -233,7 +233,7 @@ export default function BibliotecaPage() {
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">Árvore do acervo</h1>
       <p className="mt-2 text-[var(--brand-muted)]">
         Curso → Turma → Disciplina. Cadastre e organize a estrutura aqui. Envie o export MP4 em cada disciplina, ou
-        importe o que já está na pasta compartilhada (curso → turma → disciplina → vídeo).
+        importe o que já está na pasta compartilhada (curso → turma → disciplina → vídeo). Aula nova já nasce publicada.
       </p>
 
       {error ? (

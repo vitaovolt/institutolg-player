@@ -27,7 +27,7 @@ class ImportarPastaTest extends TestCase
         config(['biblioteca.drive.fake' => true, 'biblioteca.drive.folder_id' => 'pasta-piloto']);
     }
 
-    public function test_arvore_tres_niveis_cria_cadastro_play_e_nao_publica(): void
+    public function test_arvore_tres_niveis_cria_cadastro_play_e_publica(): void
     {
         $drive = Storage::disk((string) config('biblioteca.disk_drive'));
         $drive->put('pasta-piloto/Curso A/Turma 1/Disc 1/Aula E2.mp4', ValidarExportMp4::amostraValida());
@@ -46,14 +46,15 @@ class ImportarPastaTest extends TestCase
         $this->assertDatabaseHas('aulas', [
             'titulo' => 'Aula E2',
             'status_preparo' => 'pronta',
-            'publicada' => false,
+            'publicada' => true,
         ]);
 
         $aula = Aula::query()->where('titulo', 'Aula E2')->first();
         $this->assertNotNull($aula?->enviado_em);
         $this->assertNotNull($aula?->chave_play);
         $this->assertNotNull($aula?->chave_capa);
-        $this->assertFalse($aula->publicada);
+        $this->assertTrue($aula->publicada);
+        $this->assertNotNull($aula->publicada_em);
         Storage::disk((string) config('biblioteca.disk_aulas'))
             ->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->disciplina, 'Aula E2'));
 
@@ -81,6 +82,26 @@ class ImportarPastaTest extends TestCase
         $aula = Aula::query()->first();
         $this->assertSame('pronta', $aula->status_preparo);
         $this->assertNotNull($aula->enviado_em);
+        $this->assertTrue($aula->publicada);
+    }
+
+    public function test_reimportar_aula_despublicada_nao_republica(): void
+    {
+        $this->comoCoordenacao();
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+        $drive->put('pasta-piloto/Curso A/Turma 1/Disc 1/Aula E2.mp4', ValidarExportMp4::amostraValida());
+        $this->postJson('/api/v1/biblioteca/importar-pasta')->assertOk();
+
+        $aula = Aula::query()->where('titulo', 'Aula E2')->firstOrFail();
+        $this->postJson("/api/v1/aulas/{$aula->id}/despublicar")->assertOk();
+        $this->assertFalse($aula->fresh()->publicada);
+
+        $this->postJson('/api/v1/biblioteca/importar-pasta')->assertOk();
+
+        $aula = $aula->fresh();
+        $this->assertSame(1, Aula::query()->count());
+        $this->assertFalse($aula->publicada);
+        $this->assertNotNull($aula->publicada_em);
     }
 
     public function test_submit_unico_nao_enfileira_duas_vezes(): void

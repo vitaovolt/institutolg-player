@@ -15,6 +15,7 @@ class DespublicarAula
         $aula->update([
             'publicada' => false,
         ]);
+        // publicada_em permanece: substituir ou reimportar não republica sozinho.
 
         return $aula->fresh();
     }

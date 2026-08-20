@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 class PrepararVersaoDaAula
 {
+    public function __construct(private PublicarAulaSeNova $publicarSeNova) {}
+
     public function handle(Aula $aula): Aula
     {
         if ($aula->status_preparo === 'pronta' && filled($aula->chave_play)) {
@@ -61,6 +63,6 @@ class PrepararVersaoDaAula
             $disk->delete($playAnterior);
         }
 
-        return $aula->fresh();
+        return $this->publicarSeNova->handle($aula->fresh());
     }
 }

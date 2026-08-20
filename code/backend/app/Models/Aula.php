@@ -118,6 +118,11 @@ class Aula extends Model
         return $this->estaProntaParaAssistir() && $this->publicada === true;
     }
 
+    public function nuncaFoiPublicada(): bool
+    {
+        return $this->publicada_em === null;
+    }
+
     public function urlPlayer(): ?string
     {
         if (! filled($this->token_publico) || $this->status_preparo !== 'pronta') {

@@ -62,6 +62,7 @@ class SubstituicaoAulaTest extends TestCase
         $this->assertSame($token, $aula->token_publico);
         $this->assertSame($html, $aula->htmlIframe());
         $this->assertSame('pronta', $aula->status_preparo);
+        $this->assertTrue($aula->publicada);
         $this->assertNotSame($playAntes, $aula->chave_play);
         $this->assertNotEmpty($aula->chave_play);
     }
