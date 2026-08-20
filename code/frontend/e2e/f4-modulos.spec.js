@@ -262,7 +262,7 @@ test.describe('F4 módulos', () => {
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
     await expect(page.getByTestId('btn-sync-drive')).toBeVisible({ timeout: 45_000 })
     await expect(page.getByTestId('btn-sync-drive')).toHaveText('Sincronizar com Google Drive')
-    await expect(page.getByTestId('ajuda-sync-drive')).toContainText('Não apaga nada no Drive')
+    await expect(page.getByTestId('ajuda-sync-drive')).toContainText('Não apaga outros arquivos da pasta')
     await expect(page.getByTestId('pagina-detalhe-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)
 
     await page.getByTestId('btn-sync-drive').click()

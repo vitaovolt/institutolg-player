@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 class ClientePastaDrive
 {
@@ -107,6 +108,52 @@ class ClientePastaDrive
         }
 
         return filled(config('biblioteca.drive.upload_url'));
+    }
+
+    /**
+     * Reenvia se a pasta não tiver o arquivo, ou se o tamanho for outro (substituição).
+     *
+     * @param  'video'|'capa'  $tipo
+     */
+    public function precisaEnviarCopia(Aula $aula, string $tipo, ?int $tamanhoLocal): bool
+    {
+        $aula->loadMissing('disciplina.turma.curso');
+        $campo = $tipo === 'capa' ? 'drive_capa_file_id' : 'drive_file_id';
+        $salvo = (string) ($aula->{$campo} ?? '');
+
+        if ($salvo === '') {
+            return true;
+        }
+
+        if ($tamanhoLocal === null || $tamanhoLocal < 0) {
+            return true;
+        }
+
+        if (config('biblioteca.drive.fake')) {
+            $disk = Storage::disk((string) config('biblioteca.disk_drive'));
+            if (! $disk->exists($salvo)) {
+                return true;
+            }
+
+            try {
+                return (int) $disk->size($salvo) !== $tamanhoLocal;
+            } catch (Throwable) {
+                return true;
+            }
+        }
+
+        if (! $this->usaContaDeServico()) {
+            return true;
+        }
+
+        $meta = $this->obterArquivo($this->tokenDaContaDeServico(), $salvo);
+        if ($meta === null || ! empty($meta['trashed'])) {
+            return true;
+        }
+
+        $tamanhoPasta = (int) ($meta['size'] ?? -1);
+
+        return $tamanhoPasta !== $tamanhoLocal;
     }
 
     public function renomearCopia(Aula $aula, string $tituloAnterior): void
@@ -244,26 +291,38 @@ class ClientePastaDrive
     /**
      * @param  resource  $stream
      */
-    private function enviarPelaContaDeServico(Aula $aula, $stream, ?int $tamanho, string $tipo, string $extensao): string
-    {
+    private function enviarPelaContaDeServico(
+        Aula $aula,
+        $stream,
+        ?int $tamanho,
+        string $tipo,
+        string $extensao,
+        ?string $fileId = null,
+    ): string {
         $token = $this->tokenDaContaDeServico();
         $pastaId = $this->garantirArvore($aula, $token);
         $mime = $tipo === 'capa' ? $this->mimeCapa($extensao) : 'video/mp4';
 
         if ($tipo === 'capa') {
-            return $this->enviarMultipartPequeno($token, $pastaId, $aula, $stream, $mime, $extensao);
+            return $this->enviarMultipartPequeno($token, $pastaId, $aula, $stream, $mime, $extensao, $fileId);
         }
 
-        $metadata = json_encode([
-            'name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, $tipo, $extensao),
-            'parents' => [$pastaId],
-        ], JSON_UNESCAPED_UNICODE);
+        $metadata = json_encode($fileId
+            ? ['name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, $tipo, $extensao)]
+            : [
+                'name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, $tipo, $extensao),
+                'parents' => [$pastaId],
+            ], JSON_UNESCAPED_UNICODE);
 
         if ($tamanho === null) {
             $stat = fstat($stream);
             $tamanho = is_array($stat) ? (int) $stat['size'] : 0;
             rewind($stream);
         }
+
+        $url = $fileId
+            ? 'https://www.googleapis.com/upload/drive/v3/files/'.rawurlencode($fileId).'?uploadType=resumable&supportsAllDrives=true'
+            : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true';
 
         $iniciar = Http::timeout(15)
             ->withToken($token)
@@ -272,9 +331,10 @@ class ClientePastaDrive
                 'X-Upload-Content-Type' => $mime,
                 'X-Upload-Content-Length' => (string) $tamanho,
             ])
-            ->withBody($metadata, 'application/json; charset=UTF-8')
-            ->post('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true')
-            ->throw();
+            ->withBody($metadata, 'application/json; charset=UTF-8');
+
+        $iniciar = $fileId ? $iniciar->patch($url) : $iniciar->post($url);
+        $iniciar->throw();
 
         $session = (string) $iniciar->header('Location');
 
@@ -329,7 +389,7 @@ class ClientePastaDrive
             $offset += $len;
         }
 
-        return $id === '' ? 'ok' : $id;
+        return $id === '' ? ($fileId ?: 'ok') : $id;
     }
 
     /**
@@ -344,6 +404,7 @@ class ClientePastaDrive
         $stream,
         string $mime,
         string $extensao,
+        ?string $fileId = null,
     ): string {
         $bytes = stream_get_contents($stream);
         if ($bytes === false || $bytes === '') {
@@ -351,10 +412,12 @@ class ClientePastaDrive
         }
 
         $boundary = 'educraft_'.bin2hex(random_bytes(12));
-        $meta = json_encode([
-            'name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, 'capa', $extensao),
-            'parents' => [$pastaId],
-        ], JSON_UNESCAPED_UNICODE);
+        $meta = json_encode($fileId
+            ? ['name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, 'capa', $extensao)]
+            : [
+                'name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, 'capa', $extensao),
+                'parents' => [$pastaId],
+            ], JSON_UNESCAPED_UNICODE);
         $corpo = '--'.$boundary."\r\n"
             ."Content-Type: application/json; charset=UTF-8\r\n\r\n"
             .$meta."\r\n"
@@ -363,15 +426,20 @@ class ClientePastaDrive
             .$bytes."\r\n"
             .'--'.$boundary.'--';
 
-        $resposta = Http::timeout(max(30, (int) config('biblioteca.drive.timeout', 15)))
+        $url = $fileId
+            ? 'https://www.googleapis.com/upload/drive/v3/files/'.rawurlencode($fileId).'?uploadType=multipart&supportsAllDrives=true'
+            : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true';
+
+        $pedido = Http::timeout(max(30, (int) config('biblioteca.drive.timeout', 15)))
             ->withToken($token)
-            ->withBody($corpo, 'multipart/related; boundary='.$boundary)
-            ->post('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true')
-            ->throw();
+            ->withBody($corpo, 'multipart/related; boundary='.$boundary);
+
+        $resposta = $fileId ? $pedido->patch($url) : $pedido->post($url);
+        $resposta->throw();
 
         $id = (string) ($resposta->json('id') ?? '');
 
-        return $id === '' ? 'ok' : $id;
+        return $id === '' ? ($fileId ?: 'ok') : $id;
     }
 
     private function garantirArvore(Aula $aula, string $token): string
@@ -416,7 +484,7 @@ class ClientePastaDrive
             ->retry(3, 200)
             ->withToken($token)
             ->get('https://www.googleapis.com/drive/v3/files/'.$id, [
-                'fields' => 'id,name,parents,trashed',
+                'fields' => 'id,name,parents,trashed,size',
                 'supportsAllDrives' => 'true',
             ]);
 
@@ -514,21 +582,27 @@ class ClientePastaDrive
         $campo = $tipo === 'capa' ? 'drive_capa_file_id' : 'drive_file_id';
         $salvo = (string) ($aula->{$campo} ?? '');
         $nome = CaminhoDaBiblioteca::nomeArquivoDrive($aula, $tipo, $extensao);
+        $metaSalvo = $salvo !== '' ? $this->obterArquivo($token, $salvo) : null;
+        $arquivoVivo = $metaSalvo !== null && empty($metaSalvo['trashed']);
 
-        if ($salvo !== '' && $stream === null) {
-            $meta = $this->obterArquivo($token, $salvo);
-            if ($meta !== null && empty($meta['trashed'])) {
-                $this->alinharNomeEPai($token, $salvo, $meta, $nome, $pastaId);
+        if ($stream === null) {
+            if ($arquivoVivo) {
+                $this->alinharNomeEPai($token, $salvo, $metaSalvo, $nome, $pastaId);
 
                 return;
             }
-        }
 
-        if ($stream === null) {
             throw new RuntimeException('Não foi possível localizar o arquivo na pasta compartilhada.');
         }
 
-        $id = $this->enviarPelaContaDeServico($aula, $this->comoStream($stream), $tamanho, $tipo, $extensao);
+        $id = $this->enviarPelaContaDeServico(
+            $aula,
+            $this->comoStream($stream),
+            $tamanho,
+            $tipo,
+            $extensao,
+            $arquivoVivo ? $salvo : null,
+        );
         if ($id !== '' && $id !== 'ok') {
             $this->persistirFolderId($aula, $id, $campo);
         }

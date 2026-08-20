@@ -25,7 +25,10 @@ class SalvarCapaDaAula
         $path = CaminhoDaBiblioteca::chaveCapa($aula, ValidarFotoCapa::extensao($binario));
         $disk->put($path, $binario);
 
-        $aula->update(['chave_capa' => $path]);
+        $aula->update([
+            'chave_capa' => $path,
+            'status_drive' => 'pendente',
+        ]);
 
         if ($anterior && $anterior !== $path && $disk->exists($anterior)) {
             $disk->delete($anterior);

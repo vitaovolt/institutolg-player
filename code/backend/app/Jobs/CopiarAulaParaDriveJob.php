@@ -62,25 +62,31 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
             $extCapa = 'jpg';
 
             try {
-                $enviarVideo = ! filled($aula->drive_file_id);
-                if ($enviarVideo) {
-                    $streamVideo = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_play);
+                try {
                     $tamanhoVideo = (int) $disk->size($aula->chave_play);
+                } catch (Throwable) {
+                    $tamanhoVideo = null;
                 }
 
-                if (filled($aula->chave_capa) && ! filled($aula->drive_capa_file_id)) {
+                if ($cliente->precisaEnviarCopia($aula, 'video', $tamanhoVideo)) {
+                    $streamVideo = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_play);
+                }
+
+                if (filled($aula->chave_capa)) {
                     $extCapa = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
                     try {
-                        $streamCapa = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_capa);
+                        $tamanhoCapa = (int) $disk->size($aula->chave_capa);
+                    } catch (Throwable) {
+                        $tamanhoCapa = null;
+                    }
+                    if ($cliente->precisaEnviarCopia($aula, 'capa', $tamanhoCapa)) {
                         try {
-                            $tamanhoCapa = (int) $disk->size($aula->chave_capa);
-                        } catch (Throwable) {
+                            $streamCapa = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_capa);
+                        } catch (Throwable $e) {
+                            report($e);
+                            $streamCapa = null;
                             $tamanhoCapa = null;
                         }
-                    } catch (Throwable $e) {
-                        report($e);
-                        $streamCapa = null;
-                        $tamanhoCapa = null;
                     }
                 }
 

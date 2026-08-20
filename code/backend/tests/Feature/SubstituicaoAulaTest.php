@@ -66,6 +66,26 @@ class SubstituicaoAulaTest extends TestCase
         $this->assertNotEmpty($aula->chave_play);
     }
 
+    public function test_substituir_mantem_id_da_copia_para_o_proximo_sync_trocar_o_arquivo(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create([
+            'titulo' => 'Troca no play',
+            'drive_file_id' => 'arquivo-na-pasta',
+            'status_drive' => 'ok',
+        ]));
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/envios/substituir")
+            ->assertOk()
+            ->assertJsonPath('data.aula.status_preparo', 'enviando');
+
+        $this->assertDatabaseHas('aulas', [
+            'id' => $aula->id,
+            'drive_file_id' => 'arquivo-na-pasta',
+            'status_drive' => 'pendente',
+        ]);
+    }
+
     public function test_rascunho_nao_substitui(): void
     {
         $this->comoCoordenacao();

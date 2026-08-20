@@ -144,6 +144,7 @@ class CopiaDriveTest extends TestCase
         ]));
 
         $cliente = \Mockery::mock(ClientePastaDrive::class);
+        $cliente->shouldReceive('precisaEnviarCopia')->andReturn(true);
         $cliente->shouldReceive('sincronizarAula')->once()->andReturnUsing(function (Aula $alvo): void {
             $alvo->forceFill(['drive_file_id' => 'arquivo-ja-la'])->save();
             throw new \RuntimeException('falha depois do upload');
@@ -397,6 +398,60 @@ class CopiaDriveTest extends TestCase
         $this->assertNotEmpty($aula->disciplina->turma->drive_folder_id);
         $this->assertNotEmpty($aula->disciplina->drive_folder_id);
         $this->assertNotEmpty($aula->drive_file_id);
+    }
+
+    public function test_segunda_sincronizacao_nao_reenvia_se_o_arquivo_e_o_mesmo(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->aulaProntaNaArvore('Aula igual');
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+        $path = CaminhoDaBiblioteca::chaveVideo($aula->fresh()->disciplina, 'Aula igual');
+        $tamanho = strlen($drive->get($path));
+        $marcador = str_repeat('x', $tamanho);
+        $drive->put($path, $marcador);
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $this->assertSame($marcador, $drive->get($path));
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'ok']);
+    }
+
+    public function test_sincronizacao_reenvia_se_apagaram_o_arquivo_na_pasta(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->aulaProntaNaArvore('Aula sumiu');
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+        $path = CaminhoDaBiblioteca::chaveVideo($aula->fresh()->disciplina, 'Aula sumiu');
+        $drive->delete($path);
+        $drive->assertMissing($path);
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $drive->assertExists($path);
+        $this->assertNotSame('ja-estava-na-pasta', $drive->get($path));
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'ok']);
+    }
+
+    public function test_sincronizacao_substitui_quando_o_tamanho_na_pasta_e_outro(): void
+    {
+        $this->comoCoordenacao();
+        $aula = $this->aulaProntaNaArvore('Aula trocada');
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $drive = Storage::disk((string) config('biblioteca.disk_drive'));
+        $path = CaminhoDaBiblioteca::chaveVideo($aula->fresh()->disciplina, 'Aula trocada');
+        $drive->put($path, 'arquivo-antigo-curto');
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+
+        $this->assertSame(
+            Storage::disk((string) config('biblioteca.disk_aulas'))->get($aula->fresh()->chave_play),
+            $drive->get($path),
+        );
     }
 
     public function test_segunda_sincronizacao_com_titulo_novo_atualiza_o_path(): void

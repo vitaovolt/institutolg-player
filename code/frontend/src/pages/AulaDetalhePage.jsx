@@ -387,8 +387,9 @@ export default function AulaDetalhePage() {
                     : 'Sincronizar com Google Drive'}
               </button>
               <p className="m-0 text-xs text-[var(--brand-muted)]" data-testid="ajuda-sync-drive">
-                Cria ou atualiza as pastas (curso, turma, disciplina) e o arquivo da aula na pasta compartilhada. Não
-                apaga nada no Drive.
+                Cria ou atualiza as pastas (curso, turma, disciplina) e o arquivo da aula na pasta compartilhada. Se o
+                vídeo ou a capa já estiverem iguais, não envia de novo. Se alguém apagou lá ou o arquivo na plataforma
+                mudou, envia de novo. Não apaga outros arquivos da pasta.
               </p>
             </div>
           ) : null}

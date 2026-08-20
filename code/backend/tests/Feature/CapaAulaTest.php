@@ -43,6 +43,7 @@ class CapaAulaTest extends TestCase
 
         $aula = $aula->fresh();
         $this->assertNotEmpty($aula->chave_capa);
+        $this->assertSame('pendente', $aula->status_drive);
         $this->assertSame(
             \App\Support\CaminhoDaBiblioteca::chaveCapa($aula, 'png'),
             $aula->chave_capa

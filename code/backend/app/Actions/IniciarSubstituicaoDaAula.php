@@ -39,7 +39,6 @@ class IniciarSubstituicaoDaAula
             $aula->update([
                 'status_preparo' => 'enviando',
                 'status_drive' => 'pendente',
-                'drive_file_id' => null,
                 'mensagem_erro' => null,
                 's3_upload_id' => null,
                 'chave_idempotencia' => (string) Str::uuid(),
