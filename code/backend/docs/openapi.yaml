@@ -98,6 +98,31 @@ paths:
           description: Sem token
         '403':
           description: Conta sem permissão
+  /biblioteca/importar-pasta:
+    get:
+      operationId: statusImportarPasta
+      summary: Relatório da última importação da pasta compartilhada (curso → turma → disciplina)
+      tags: [Biblioteca]
+      responses:
+        '200':
+          description: Status ocioso, importando, ok ou erro
+        '401':
+          description: Sem token
+        '403':
+          description: Conta sem permissão
+    post:
+      operationId: importarPastaCompartilhada
+      summary: Lê a pasta compartilhada, cria o cadastro que faltar e copia MP4 novos para o play
+      tags: [Biblioteca]
+      responses:
+        '200':
+          description: Job na fila biblioteca (idempotente se já estiver importando)
+        '401':
+          description: Sem token
+        '403':
+          description: Conta sem permissão
+        '422':
+          description: Pasta compartilhada não configurada para importar
   /resumo-mes:
     get:
       operationId: resumoDoMes

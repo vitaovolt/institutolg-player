@@ -12,6 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        $schedule->job(new \App\Jobs\VarreduraDaPastaCompartilhadaJob)
+            ->hourly()
+            ->withoutOverlapping(60)
+            ->name('importar-pasta-compartilhada');
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         // Bearer Sanctum — sem statefulApi/CSRF (SPA em origem Vite distinta).
         $middleware->append(SecurityHeaders::class);

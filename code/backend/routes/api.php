@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CursoController;
 use App\Http\Controllers\Api\DisciplinaController;
 use App\Http\Controllers\Api\EnvioAulaController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\ImportarPastaController;
 use App\Http\Controllers\Api\PublicacaoAulaController;
 use App\Http\Controllers\Api\ResumoDoMesController;
 use App\Http\Controllers\Api\TurmaController;
@@ -28,6 +29,8 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('/auth/refresh', [AuthController::class, 'refresh']);
 
         Route::get('/biblioteca', BibliotecaController::class);
+        Route::get('/biblioteca/importar-pasta', [ImportarPastaController::class, 'mostrar']);
+        Route::post('/biblioteca/importar-pasta', [ImportarPastaController::class, 'iniciar']);
         Route::get('/resumo-mes', ResumoDoMesController::class);
         Route::apiResource('usuarios', UsuarioController::class)->parameters(['usuarios' => 'user']);
 

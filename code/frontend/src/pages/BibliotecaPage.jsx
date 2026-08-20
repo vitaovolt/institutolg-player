@@ -12,7 +12,7 @@ import {
   excluirDisciplina,
   excluirTurma,
 } from '../api/arvore'
-import { fetchBiblioteca } from '../api/biblioteca'
+import { fetchBiblioteca, importarPasta, fetchImportarPasta } from '../api/biblioteca'
 import { DisciplinaFolha, LinhaNo } from '../components/arvore/LinhaNo.jsx'
 import ControlesArvore from '../components/arvore/ControlesArvore.jsx'
 import Button, { classesBotao } from '../components/ui/Button.jsx'
@@ -44,6 +44,7 @@ export default function BibliotecaPage() {
   const [aberto, setAberto] = useState({ cursos: {}, turmas: {} })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [novoCurso, setNovoCurso] = useState('')
   const [novaTurma, setNovaTurma] = useState({})
   const [novaDisc, setNovaDisc] = useState({})
@@ -54,6 +55,7 @@ export default function BibliotecaPage() {
   const { show: mostrarToast } = useToast()
   const avisoAulaRef = useRef(false)
   const submittingRef = useRef(false)
+  const importandoRef = useRef(false)
   const turmaFoco = searchParams.get('turma')
   const disciplinaFoco = searchParams.get('disciplina')
   const aulaFoco = searchParams.get('aula')
@@ -131,6 +133,42 @@ export default function BibliotecaPage() {
     }
   }, [aulaFoco, mostrarToast, recarregar])
 
+  async function importarDaPasta() {
+    if (importandoRef.current) return
+    importandoRef.current = true
+    setImportando(true)
+    try {
+      const resposta = await importarPasta()
+      let relatorio = resposta.data
+      if (relatorio?.status === 'importando') {
+        mostrarToast(resposta.message || 'Importando da pasta compartilhada…')
+        for (let i = 0; i < 90; i += 1) {
+          await new Promise((r) => setTimeout(r, 2000))
+          const poll = await fetchImportarPasta()
+          relatorio = poll.data
+          if (relatorio?.status && relatorio.status !== 'importando') break
+        }
+      }
+      await recarregar()
+      if (relatorio?.status === 'erro') {
+        mostrarToast(relatorio.erros?.[0] || 'Não foi possível importar da pasta compartilhada.', 'erro')
+      } else {
+        const criados = (relatorio?.criados || []).length
+        const ignorados = (relatorio?.ignorados || []).length
+        mostrarToast(
+          criados || ignorados
+            ? `Importação concluída. ${criados} cadastro(s) novo(s), ${ignorados} item(ns) ignorado(s).`
+            : 'Importação concluída. Nada novo na pasta.',
+        )
+      }
+    } catch (err) {
+      mostrarToast(mensagemDaFalha(err, 'Não foi possível importar da pasta compartilhada.'), 'erro')
+    } finally {
+      importandoRef.current = false
+      setImportando(false)
+    }
+  }
+
   useEffect(() => {
     if (!arvore) return
     const alvo =
@@ -185,7 +223,7 @@ export default function BibliotecaPage() {
     }
   }
 
-  const ocupado = submitting || excluindoId != null
+  const ocupado = submitting || excluindoId != null || importando
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-10" data-testid="pagina-biblioteca">
@@ -194,7 +232,8 @@ export default function BibliotecaPage() {
       </p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">Árvore do acervo</h1>
       <p className="mt-2 text-[var(--brand-muted)]">
-        Curso → Turma → Disciplina. Cadastre e organize a estrutura aqui. Envie o export MP4 em cada disciplina.
+        Curso → Turma → Disciplina. Cadastre e organize a estrutura aqui. Envie o export MP4 em cada disciplina, ou
+        importe o que já está na pasta compartilhada (curso → turma → disciplina → vídeo).
       </p>
 
       {error ? (
@@ -203,6 +242,17 @@ export default function BibliotecaPage() {
         <p className="mt-8 text-[var(--brand-muted)]">Carregando…</p>
       ) : (
         <>
+          <div className="mt-6">
+            <Button
+              type="button"
+              variant="secondary"
+              data-testid="botao-importar-pasta"
+              disabled={ocupado}
+              onClick={importarDaPasta}
+            >
+              {importando ? 'Processando…' : 'Importar da pasta compartilhada'}
+            </Button>
+          </div>
           <form
             className="mt-8 rounded-[10px] border border-[var(--brand-line)] bg-[var(--brand-surface)] p-4"
             onSubmit={(e) => {

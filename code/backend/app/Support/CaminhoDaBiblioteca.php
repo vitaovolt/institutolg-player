@@ -71,4 +71,30 @@ class CaminhoDaBiblioteca
     {
         return self::nomeArquivoDrivePara((string) $aula->titulo, $tipo, $extensao);
     }
+
+    /**
+     * @return array{tipo: 'video'|'capa', titulo: string, extensao: string}|null
+     */
+    public static function interpretarArquivoDaPasta(string $nome): ?array
+    {
+        $nome = trim($nome);
+        if ($nome === '') {
+            return null;
+        }
+
+        if (preg_match('/^(.+)_capa\.(jpe?g|png|webp)$/i', $nome, $m) === 1) {
+            $ext = strtolower($m[2]);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+
+            return ['tipo' => 'capa', 'titulo' => $m[1], 'extensao' => $ext];
+        }
+
+        if (preg_match('/^(.+)\.mp4$/i', $nome, $m) === 1) {
+            return ['tipo' => 'video', 'titulo' => $m[1], 'extensao' => 'mp4'];
+        }
+
+        return null;
+    }
 }

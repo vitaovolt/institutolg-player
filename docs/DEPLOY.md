@@ -79,8 +79,9 @@ Labels `self-hosted`, `Linux`, `X64` — status **Idle**. Instalar como user `ub
 3. `php artisan key:generate`
 4. Nginx: `deploy/nginx/institutolg-player.conf` → sites-enabled + `certbot --nginx`
 5. Queue: `deploy/systemd/institutolg-player-queue.service` (`enabled` + `active`)
-6. DNS A do domínio → IP da EC2
-7. Security Group: porta **22** só no IP `/32` do admin — **nunca** `0.0.0.0/0`
+6. Cron a cada minuto: `php artisan schedule:run` (importação da pasta compartilhada de hora em hora; o botão na Biblioteca não depende disto)
+7. DNS A do domínio → IP da EC2
+8. Security Group: porta **22** só no IP `/32` do admin — **nunca** `0.0.0.0/0`
 
 ```env
 APP_ENV=production

@@ -11,6 +11,15 @@ São **dois caminhos**. Não é “um serviço só de sync”.
 
 Se a cópia falhar, a aula **pode continuar assistível**. Os dois status no painel são independentes.
 
+Há dois botões (sentidos opostos):
+
+| Botão | Sentido |
+|-------|---------|
+| **Sincronizar com Google Drive** (no detalhe da aula) | play → pasta |
+| **Importar da pasta compartilhada** (na Biblioteca) | pasta → cadastro + play |
+
+A importação lê **3 níveis** a partir da pasta raiz: curso → turma → disciplina → MP4. Não publica sozinha. R$ 3,80 vale no `enviado_em`. Recorrente: o mesmo job na fila `biblioteca` + `schedule:run` a cada hora (além do botão).
+
 ## O que **não** contratar
 
 | Evitar | Por quê |

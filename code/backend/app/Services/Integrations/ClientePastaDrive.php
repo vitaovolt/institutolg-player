@@ -110,6 +110,188 @@ class ClientePastaDrive
         return filled(config('biblioteca.drive.upload_url'));
     }
 
+    public function podeListarPasta(): bool
+    {
+        return (bool) config('biblioteca.drive.fake') || $this->usaContaDeServico();
+    }
+
+    /**
+     * @return list<array{id: string, name: string, mimeType: string, size: int}>
+     */
+    public function listarFilhos(string $paiId): array
+    {
+        if (config('biblioteca.drive.fake')) {
+            return $this->listarFilhosFake($paiId);
+        }
+
+        if (! $this->usaContaDeServico()) {
+            throw new RuntimeException('A pasta compartilhada ainda não está configurada para importar.');
+        }
+
+        return $this->listarFilhosNaConta($this->tokenDaContaDeServico(), $paiId);
+    }
+
+    /**
+     * @return resource
+     */
+    public function abrirDownload(string $id)
+    {
+        if (config('biblioteca.drive.fake')) {
+            $stream = Storage::disk((string) config('biblioteca.disk_drive'))->readStream($id);
+            if ($stream === false || $stream === null) {
+                throw new RuntimeException('Não foi possível ler o arquivo na pasta compartilhada.');
+            }
+
+            return $stream;
+        }
+
+        if (! $this->usaContaDeServico()) {
+            throw new RuntimeException('A pasta compartilhada ainda não está configurada para importar.');
+        }
+
+        $resposta = Http::timeout(max(60, (int) config('biblioteca.drive.timeout', 15)))
+            ->withToken($this->tokenDaContaDeServico())
+            ->withOptions(['stream' => true])
+            ->get('https://www.googleapis.com/drive/v3/files/'.rawurlencode($id), [
+                'alt' => 'media',
+                'supportsAllDrives' => 'true',
+            ])
+            ->throw();
+
+        $corpo = $resposta->toPsrResponse()->getBody();
+        $recurso = method_exists($corpo, 'detach') ? $corpo->detach() : null;
+        if (! is_resource($recurso)) {
+            throw new RuntimeException('Não foi possível abrir o arquivo da pasta compartilhada.');
+        }
+
+        return $recurso;
+    }
+
+    public function baixarFaixa(string $id, int $bytes = 32): string
+    {
+        $bytes = max(12, $bytes);
+
+        if (config('biblioteca.drive.fake')) {
+            $disk = Storage::disk((string) config('biblioteca.disk_drive'));
+            if (! $disk->exists($id)) {
+                throw new RuntimeException('Não foi possível ler o arquivo na pasta compartilhada.');
+            }
+
+            return substr((string) $disk->get($id), 0, $bytes);
+        }
+
+        if (! $this->usaContaDeServico()) {
+            throw new RuntimeException('A pasta compartilhada ainda não está configurada para importar.');
+        }
+
+        $resposta = Http::timeout(15)
+            ->retry(3, 200)
+            ->withToken($this->tokenDaContaDeServico())
+            ->withHeaders(['Range' => 'bytes=0-'.($bytes - 1)])
+            ->get('https://www.googleapis.com/drive/v3/files/'.rawurlencode($id), [
+                'alt' => 'media',
+                'supportsAllDrives' => 'true',
+            ])
+            ->throw();
+
+        $corpo = (string) $resposta->body();
+        if ($corpo === '') {
+            throw new RuntimeException('Não foi possível ler o início do arquivo na pasta compartilhada.');
+        }
+
+        return $corpo;
+    }
+
+    /**
+     * @return list<array{id: string, name: string, mimeType: string, size: int}>
+     */
+    private function listarFilhosFake(string $paiId): array
+    {
+        $disk = Storage::disk((string) config('biblioteca.disk_drive'));
+        $pai = trim($paiId, '/');
+        $itens = [];
+
+        foreach ($disk->directories($pai) as $pasta) {
+            $itens[] = [
+                'id' => $pasta,
+                'name' => basename(str_replace('\\', '/', $pasta)),
+                'mimeType' => 'application/vnd.google-apps.folder',
+                'size' => 0,
+            ];
+        }
+
+        foreach ($disk->files($pai) as $arquivo) {
+            $nome = basename(str_replace('\\', '/', $arquivo));
+            $ext = strtolower((string) pathinfo($nome, PATHINFO_EXTENSION));
+            $mime = match ($ext) {
+                'mp4' => 'video/mp4',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'webp' => 'image/webp',
+                default => 'application/octet-stream',
+            };
+            try {
+                $tamanho = (int) $disk->size($arquivo);
+            } catch (Throwable) {
+                $tamanho = 0;
+            }
+            $itens[] = [
+                'id' => $arquivo,
+                'name' => $nome,
+                'mimeType' => $mime,
+                'size' => $tamanho,
+            ];
+        }
+
+        return $itens;
+    }
+
+    /**
+     * @return list<array{id: string, name: string, mimeType: string, size: int}>
+     */
+    private function listarFilhosNaConta(string $token, string $paiId): array
+    {
+        $itens = [];
+        $page = null;
+
+        do {
+            $query = [
+                'q' => "'".$this->escapeDrive($paiId)."' in parents and trashed=false",
+                'pageSize' => 1000,
+                'fields' => 'nextPageToken,files(id,name,mimeType,size)',
+                'supportsAllDrives' => 'true',
+                'includeItemsFromAllDrives' => 'true',
+                'corpora' => 'allDrives',
+            ];
+            if (is_string($page) && $page !== '') {
+                $query['pageToken'] = $page;
+            }
+
+            $lista = Http::timeout(15)
+                ->retry(3, 200)
+                ->withToken($token)
+                ->get('https://www.googleapis.com/drive/v3/files', $query)
+                ->throw()
+                ->json();
+
+            foreach ($lista['files'] ?? [] as $arquivo) {
+                if (! is_array($arquivo) || empty($arquivo['id'])) {
+                    continue;
+                }
+                $itens[] = [
+                    'id' => (string) $arquivo['id'],
+                    'name' => (string) ($arquivo['name'] ?? ''),
+                    'mimeType' => (string) ($arquivo['mimeType'] ?? ''),
+                    'size' => (int) ($arquivo['size'] ?? 0),
+                ];
+            }
+
+            $page = $lista['nextPageToken'] ?? null;
+        } while (is_string($page) && $page !== '');
+
+        return $itens;
+    }
+
     /**
      * Reenvia se a pasta não tiver o arquivo, ou se o tamanho for outro (substituição).
      *
