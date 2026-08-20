@@ -4,6 +4,7 @@ import { despublicarAula, excluirAula, fetchAula, publicarAula, removerCapa, sal
 import Button from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
 import { formatarDataBR } from '../services/formatar'
+import { ehErroDeProxy, esperar, mensagemDaFalha } from '../services/errosHttp'
 import { rotuloStatusDrive, rotuloStatusPreparo } from '../services/validarMp4'
 
 function pill(ok, texto) {
@@ -41,9 +42,21 @@ export default function AulaDetalhePage() {
 
   useEffect(() => {
     let cancelled = false
-    carregar().catch(() => {
-      if (!cancelled) setError('Não foi possível carregar a aula.')
-    })
+    ;(async () => {
+      for (let i = 0; i < 5; i += 1) {
+        try {
+          await carregar()
+          return
+        } catch (err) {
+          if (cancelled) return
+          if (!ehErroDeProxy(err) || i === 4) {
+            setError('Não foi possível carregar a aula.')
+            return
+          }
+          await esperar(1500 * (i + 1))
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }
@@ -79,7 +92,7 @@ export default function AulaDetalhePage() {
       await carregar()
       if (toastOk) mostrarToast(toastOk)
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Não foi possível concluir. Tente de novo.'
+      const msg = mensagemDaFalha(err)
       mostrarToast(msg, 'erro')
     } finally {
       submittingRef.current = false
@@ -156,8 +169,25 @@ export default function AulaDetalhePage() {
       await carregar()
       mostrarToast('Enviando a cópia para a pasta compartilhada.')
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Não foi possível concluir. Tente de novo.'
-      mostrarToast(msg, 'erro')
+      if (ehErroDeProxy(err)) {
+        for (let i = 0; i < 8; i += 1) {
+          await esperar(1500)
+          try {
+            const atual = await carregar()
+            if (atual.status_drive === 'enviando' || atual.status_drive === 'ok') {
+              mostrarToast(
+                atual.status_drive === 'ok'
+                  ? 'Cópia na pasta compartilhada atualizada.'
+                  : 'Enviando a cópia para a pasta compartilhada.',
+              )
+              return
+            }
+          } catch {
+            // tenta de novo
+          }
+        }
+      }
+      mostrarToast(mensagemDaFalha(err, 'Não foi possível sincronizar. Tente de novo.'), 'erro')
     } finally {
       submittingRef.current = false
       setSubmitting(false)

@@ -32,16 +32,6 @@ class StoreUsuarioRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator): void {
-            $limite = (int) config('biblioteca.max_logins_painel');
-            if (User::query()->count() >= $limite) {
-                $validator->errors()->add('email', "O painel admite no máximo {$limite} contas.");
-            }
-        });
-    }
-
     protected function prepareForValidation(): void
     {
         if ($this->exists('name')) {

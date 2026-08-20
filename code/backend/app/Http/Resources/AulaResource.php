@@ -23,6 +23,7 @@ class AulaResource extends JsonResource
             'enviado_em' => $this->enviado_em?->toIso8601String(),
             'mensagem_erro' => $this->mensagem_erro,
             'tamanho_bytes' => $this->tamanho_bytes,
+            'aguardando_objeto' => filled($this->s3_upload_id),
             'tem_arquivo' => filled($this->chave_arquivo),
             'pronta_para_assistir' => $this->estaProntaParaAssistir(),
             'tem_capa' => filled($this->chave_capa),

@@ -93,6 +93,28 @@ class CopiaDriveTest extends TestCase
         $this->assertTrue($aula->fresh()->estaProntaParaAssistir());
     }
 
+    public function test_job_marca_ok_se_o_arquivo_ja_foi_para_o_drive(): void
+    {
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create([
+            'status_drive' => 'pendente',
+        ]));
+
+        $cliente = \Mockery::mock(ClientePastaDrive::class);
+        $cliente->shouldReceive('sincronizarAula')->once()->andReturnUsing(function (Aula $alvo): void {
+            $alvo->forceFill(['drive_file_id' => 'arquivo-ja-la'])->save();
+            throw new \RuntimeException('falha depois do upload');
+        });
+
+        (new CopiarAulaParaDriveJob($aula->id))->handle($cliente);
+
+        $this->assertDatabaseHas('aulas', [
+            'id' => $aula->id,
+            'status_drive' => 'ok',
+            'drive_file_id' => 'arquivo-ja-la',
+        ]);
+        $this->assertNull($aula->fresh()->mensagem_erro);
+    }
+
     public function test_client_http_usa_timeout_quando_a_pasta_e_real(): void
     {
         config([

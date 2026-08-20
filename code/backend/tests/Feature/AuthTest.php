@@ -19,7 +19,6 @@ class AuthTest extends TestCase
             'email' => 'carolina@institutolg.local',
             'name' => 'Carolina',
         ]);
-        $this->assertLessThanOrEqual(config('biblioteca.max_logins_painel'), User::query()->count());
     }
 
     public function test_login_retorna_token_e_grava_personal_access_token(): void

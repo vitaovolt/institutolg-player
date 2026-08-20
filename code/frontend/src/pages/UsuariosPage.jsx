@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { formatarDataBR } from '../services/formatar'
 
-const LIMITE = 5
 const FORM_VAZIO = { name: '', email: '', password: '', ativo: true }
 
 export default function UsuariosPage() {
@@ -110,7 +109,6 @@ export default function UsuariosPage() {
     }
   }
 
-  const noLimite = (lista || []).length >= LIMITE
   const ocupado = submitting
 
   return (
@@ -118,7 +116,7 @@ export default function UsuariosPage() {
       <p className="m-0 text-xs font-extrabold tracking-[0.14em] uppercase text-[var(--brand-primary)]">Contas</p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">Usuários do painel</h1>
       <p className="mt-2 text-[var(--brand-muted)]">
-        Até {LIMITE} logins. Editar e Excluir ficam em cada linha. Você não pode apagar ou desativar a própria conta.
+        Editar e Excluir ficam em cada linha. Você não pode apagar ou desativar a própria conta.
       </p>
 
       {error ? <p className="mt-8 font-semibold text-[var(--brand-danger)]">{error}</p> : null}
@@ -176,7 +174,7 @@ export default function UsuariosPage() {
               Conta ativa
             </label>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button type="submit" disabled={ocupado || (!editandoId && noLimite)}>
+              <Button type="submit" disabled={ocupado}>
                 {ocupado ? 'Processando…' : editandoId ? 'Salvar' : 'Criar usuário'}
               </Button>
               {editandoId ? (
@@ -185,9 +183,6 @@ export default function UsuariosPage() {
                 </Button>
               ) : null}
             </div>
-            {!editandoId && noLimite ? (
-              <p className="mt-2 text-sm text-[var(--brand-muted)]">Limite de {LIMITE} contas atingido.</p>
-            ) : null}
           </form>
 
           <ul className="mt-6 space-y-2">

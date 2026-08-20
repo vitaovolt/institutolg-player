@@ -42,7 +42,9 @@ export async function pedirUrlDaParte(token, partNumber) {
 }
 
 export async function completarPartesEnvio(token, parts) {
-  const { data } = await client.post(`envios/${token}/completar-multipart`, { parts })
+  const { data } = await client.post(`envios/${token}/completar-multipart`, { parts }, {
+    timeout: 5 * 60 * 1000,
+  })
   return data
 }
 

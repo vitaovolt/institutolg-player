@@ -124,21 +124,21 @@ class UsuarioTest extends TestCase
         ]);
     }
 
-    public function test_respeita_teto_de_cinco_contas(): void
+    public function test_cria_alem_de_cinco_contas(): void
     {
         $this->comoCoordenacao();
         User::factory()->count(4)->create();
 
         $this->postJson('/api/v1/usuarios', [
-            'name' => 'Excedente',
+            'name' => 'Sexto',
             'email' => 'sexto@institutolg.local',
             'password' => 'senha-segura',
         ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertCreated()
+            ->assertJsonPath('data.email', 'sexto@institutolg.local');
 
-        $this->assertDatabaseMissing('users', ['email' => 'sexto@institutolg.local']);
-        $this->assertDatabaseCount('users', 5);
+        $this->assertDatabaseHas('users', ['email' => 'sexto@institutolg.local']);
+        $this->assertDatabaseCount('users', 6);
     }
 
     public function test_anonimo_nao_lista_nem_cria(): void

@@ -119,7 +119,7 @@ paths:
   /usuarios:
     get:
       operationId: listarUsuarios
-      summary: Contas do painel (até 5)
+      summary: Contas do painel
       tags: [Usuarios]
       responses:
         '200':
@@ -155,7 +155,7 @@ paths:
         '403':
           description: Conta sem permissão
         '422':
-          description: Validação ou teto de 5 contas
+          description: Validação
   /usuarios/{user}:
     parameters:
       - name: user

@@ -101,7 +101,7 @@ class AssinadorS3DeUploadDireto implements AssinadorDeUploadDireto
             ],
             'http' => [
                 'connect_timeout' => 10,
-                'timeout' => 60,
+                'timeout' => 300,
             ],
         ]);
     }

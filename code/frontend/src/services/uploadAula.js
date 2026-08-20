@@ -1,3 +1,4 @@
+import { ehErroDeProxy, esperar } from './errosHttp'
 import {
   concluirEnvio,
   completarPartesEnvio,
@@ -8,14 +9,51 @@ import {
   putArquivoEnvio,
 } from '../api/aulas'
 
-function esperar(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 function tokenDoUploadPath(uploadPath) {
   const trecho = String(uploadPath || '').replace(/^\//, '')
   const match = trecho.match(/^envios\/([^/]+)/)
   return match ? match[1] : ''
+}
+
+async function completarPartesComRetry(token, parts, signal) {
+  let ultimoErro = null
+  for (let tentativa = 1; tentativa <= 4; tentativa += 1) {
+    if (signal?.aborted) {
+      throw new DOMException('Envio cancelado.', 'AbortError')
+    }
+    try {
+      return await completarPartesEnvio(token, parts)
+    } catch (err) {
+      ultimoErro = err
+      if (!ehErroDeProxy(err) && statusDeFalhaSafe(err) < 500) {
+        throw err
+      }
+      await esperar(1500 * tentativa)
+    }
+  }
+  throw ultimoErro
+}
+
+function statusDeFalhaSafe(err) {
+  return Number(err?.response?.status || 0)
+}
+
+async function esperarObjetoPronto(aulaId, { signal, intervaloMs = 2000, tentativas = 90 } = {}) {
+  for (let i = 0; i < tentativas; i += 1) {
+    if (signal?.aborted) {
+      throw new DOMException('Envio cancelado.', 'AbortError')
+    }
+    const payload = await fetchAula(aulaId)
+    const aula = payload.data
+    if (aula.tamanho_bytes && !aula.aguardando_objeto) {
+      return aula
+    }
+    if (aula.status_preparo === 'erro' && aula.mensagem_erro) {
+      throw new Error(aula.mensagem_erro)
+    }
+    await esperar(intervaloMs)
+  }
+  throw new Error('O arquivo ainda está sendo fechado no armazenamento. Atualize a página em instantes.')
 }
 
 async function enviarPorPartes(uploadPath, file, partSize, onProgress, signal) {
@@ -59,7 +97,7 @@ async function enviarPorPartes(uploadPath, file, partSize, onProgress, signal) {
     }
   }
 
-  await completarPartesEnvio(token, parts)
+  await completarPartesComRetry(token, parts, signal)
 }
 
 async function enviarArquivo(inicio, file, onProgress, signal) {
@@ -92,6 +130,7 @@ export async function enviarAulaCompleto({
 
   const aulaId = iniciado.data.aula.id
   await enviarArquivo(iniciado, file, onProgress, signal)
+  await esperarObjetoPronto(aulaId, { signal })
 
   const concluido = await concluirEnvio(aulaId)
   return { aulaId, aula: concluido.data }
@@ -101,6 +140,7 @@ export async function substituirAulaCompleto({ aulaId, file, onProgress, signal 
   const iniciado = await iniciarSubstituicao(aulaId)
   const id = iniciado.data.aula.id
   await enviarArquivo(iniciado, file, onProgress, signal)
+  await esperarObjetoPronto(id, { signal })
 
   const concluido = await concluirEnvio(id)
   return { aulaId: id, aula: concluido.data }

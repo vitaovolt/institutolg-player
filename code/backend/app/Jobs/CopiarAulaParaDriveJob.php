@@ -85,6 +85,16 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
                     'mensagem_erro' => null,
                 ]);
             } catch (Throwable $e) {
+                $aula->refresh();
+                if (filled($aula->drive_file_id)) {
+                    $aula->update([
+                        'status_drive' => 'ok',
+                        'mensagem_erro' => null,
+                    ]);
+
+                    return;
+                }
+
                 $aula->update([
                     'status_drive' => 'erro',
                     'mensagem_erro' => 'Não foi possível enviar a cópia para a pasta compartilhada. Tente de novo.',

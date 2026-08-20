@@ -321,6 +321,40 @@ class EnvioAulaTest extends TestCase
         $aula = Aula::query()->findOrFail($iniciar->json('data.aula.id'));
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
         $this->assertSame(strlen(ValidarExportMp4::amostraValida()), $aula->tamanho_bytes);
+        $this->assertNull($aula->s3_upload_id);
+    }
+
+    public function test_multipart_fecha_mesmo_se_completar_estourar_depois_do_objeto_pronto(): void
+    {
+        $this->comoCoordenacao();
+        config(['filesystems.disks.aulas.driver' => 's3']);
+        $this->mock(\App\Contracts\AssinadorDeUploadDireto::class, function ($mock): void {
+            $mock->shouldReceive('iniciar')->once()->andReturn('up-timeout');
+            $mock->shouldReceive('urlDaParte')->once()->andReturn('https://objeto.test/parte-1');
+            $mock->shouldReceive('completar')->once()->andReturnUsing(function (Aula $aula): void {
+                Storage::disk((string) config('biblioteca.disk_aulas'))
+                    ->put($aula->chave_arquivo, ValidarExportMp4::amostraValida());
+                throw new \RuntimeException('timeout ao fechar partes');
+            });
+            $mock->shouldReceive('abortar')->zeroOrMoreTimes();
+        });
+
+        $disciplina = Disciplina::factory()->create();
+        $iniciar = $this->postJson("/api/v1/disciplinas/{$disciplina->id}/envios", [
+            'titulo' => 'Aula 12GB',
+            'chave_idempotencia' => (string) Str::uuid(),
+        ])->assertCreated();
+
+        $token = basename((string) $iniciar->json('data.upload_path'));
+        $this->postJson("/api/v1/envios/{$token}/partes", ['part_number' => 1])->assertOk();
+        $this->postJson("/api/v1/envios/{$token}/completar-multipart", [
+            'parts' => [['part_number' => 1, 'etag' => '"abc123"']],
+        ])->assertOk();
+
+        $aula = Aula::query()->findOrFail($iniciar->json('data.aula.id'));
+        Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
+        $this->assertSame(strlen(ValidarExportMp4::amostraValida()), $aula->tamanho_bytes);
+        $this->assertNull($aula->s3_upload_id);
     }
 
     public function test_le_so_o_inicio_do_arquivo(): void

@@ -67,7 +67,7 @@ export default function LoginPage() {
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">
         Painel da coordenação
       </h1>
-      <p className="mt-2 text-[var(--brand-muted)]">Até 5 logins. Aluno não entra aqui.</p>
+      <p className="mt-2 text-[var(--brand-muted)]">Aluno não entra aqui.</p>
 
       <form
         onSubmit={onSubmit}
