@@ -76,6 +76,10 @@ class AssinadorS3DeUploadDireto implements AssinadorDeUploadDireto
                 'Bucket' => $cfg['bucket'],
                 'Key' => $aula->chave_arquivo,
                 'UploadId' => $aula->s3_upload_id,
+                '@http' => [
+                    'timeout' => 8,
+                    'connect_timeout' => 3,
+                ],
             ]);
         } catch (\Throwable) {
             // envio já fechado ou objeto já no destino

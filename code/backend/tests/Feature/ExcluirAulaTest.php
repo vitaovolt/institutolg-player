@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\LimparObjetosDaAulaJob;
 use App\Models\Aula;
 use App\Support\ValidarExportMp4;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ExcluirAulaTest extends TestCase
@@ -58,5 +61,32 @@ class ExcluirAulaTest extends TestCase
         $aulas->assertMissing($arquivo);
         $aulas->assertMissing($capa);
         $drive->assertExists($copiaPasta);
+    }
+
+    public function test_excluir_aula_enviando_some_do_banco_mesmo_se_o_abortar_falhar(): void
+    {
+        $this->comoCoordenacao();
+        Queue::fake();
+        $this->mock(\App\Contracts\AssinadorDeUploadDireto::class, function ($mock): void {
+            $mock->shouldReceive('abortar')->andThrow(new \RuntimeException('timeout ao abortar envio'));
+        });
+
+        $aula = Aula::factory()->create([
+            'titulo' => 'Aula 36',
+            'status_preparo' => 'enviando',
+            's3_upload_id' => 'up-preso',
+            'token_upload' => Str::random(64),
+            'chave_arquivo' => 'origem/36/video.mp4',
+        ]);
+
+        $this->deleteJson("/api/v1/aulas/{$aula->id}")
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('aulas', ['id' => $aula->id]);
+        Queue::assertPushed(LimparObjetosDaAulaJob::class, function (LimparObjetosDaAulaJob $job) use ($aula): bool {
+            return ($job->snapshot['s3_upload_id'] ?? null) === 'up-preso'
+                && ($job->snapshot['chave_arquivo'] ?? null) === $aula->chave_arquivo;
+        });
     }
 }

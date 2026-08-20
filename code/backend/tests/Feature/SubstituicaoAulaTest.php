@@ -79,4 +79,33 @@ class SubstituicaoAulaTest extends TestCase
             'status_preparo' => 'rascunho',
         ]);
     }
+
+    public function test_substituir_envio_preso_abre_novo_token(): void
+    {
+        $this->comoCoordenacao();
+        $this->mock(\App\Contracts\AssinadorDeUploadDireto::class, function ($mock): void {
+            $mock->shouldReceive('abortar')->once();
+        });
+
+        $aula = Aula::factory()->create([
+            'titulo' => 'Aula 36',
+            'status_preparo' => 'enviando',
+            'token_upload' => 'token-velho-'.Str::random(8),
+            's3_upload_id' => 'up-preso',
+            'chave_arquivo' => 'origem/36/video.mp4',
+        ]);
+        $tokenPublico = $aula->token_publico;
+        $tokenUploadAntes = $aula->token_upload;
+
+        $this->postJson("/api/v1/aulas/{$aula->id}/envios/substituir")
+            ->assertOk()
+            ->assertJsonPath('data.aula.status_preparo', 'enviando')
+            ->assertJsonPath('data.aula.token_publico', $tokenPublico);
+
+        $aula = $aula->fresh();
+        $this->assertSame($tokenPublico, $aula->token_publico);
+        $this->assertNotSame($tokenUploadAntes, $aula->token_upload);
+        $this->assertNull($aula->s3_upload_id);
+        $this->assertSame('enviando', $aula->status_preparo);
+    }
 }

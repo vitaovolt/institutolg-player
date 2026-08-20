@@ -23,6 +23,7 @@ import {
   mesclarAberto,
   recolherArvore,
 } from '../services/arvoreAberta'
+import { mensagemDaFalha } from '../services/errosHttp'
 import { rotuloStatusPreparo } from '../services/validarMp4'
 
 function statusDaAula(arvore, aulaId) {
@@ -176,7 +177,7 @@ export default function BibliotecaPage() {
       await recarregar()
       mostrarToast('Aula excluída.')
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Não foi possível excluir. Tente de novo.'
+      const msg = mensagemDaFalha(err, 'Não foi possível excluir. Tente de novo.')
       mostrarToast(msg, 'erro')
     } finally {
       submittingRef.current = false

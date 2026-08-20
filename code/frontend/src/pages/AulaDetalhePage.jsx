@@ -114,7 +114,7 @@ export default function AulaDetalhePage() {
       await excluirAula(aula.id)
       navigate('/biblioteca', { state: { toast: 'Aula excluída.' } })
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Não foi possível excluir. Tente de novo.'
+      const msg = mensagemDaFalha(err, 'Não foi possível excluir. Tente de novo.')
       mostrarToast(msg, 'erro')
       submittingRef.current = false
       setSubmitting(false)
@@ -338,12 +338,13 @@ export default function AulaDetalhePage() {
           >
             Copiar HTML
           </button>
-          {pronta ? (
+          {pronta || aula.status_preparo === 'enviando' || aula.status_preparo === 'erro' ? (
             <Link
               to={`/aulas/${aula.id}/substituir`}
+              data-testid="btn-substituir-aula"
               className="rounded-lg border border-[var(--brand-line)] px-4 py-3 text-sm font-bold text-[var(--brand-primary)] no-underline"
             >
-              Substituir vídeo
+              {pronta ? 'Substituir vídeo' : 'Enviar vídeo de novo'}
             </Link>
           ) : null}
           {pronta && !aula.publicada ? (
