@@ -249,6 +249,11 @@ class ClientePastaDrive
         $token = $this->tokenDaContaDeServico();
         $pastaId = $this->garantirArvore($aula, $token);
         $mime = $tipo === 'capa' ? $this->mimeCapa($extensao) : 'video/mp4';
+
+        if ($tipo === 'capa') {
+            return $this->enviarMultipartPequeno($token, $pastaId, $aula, $stream, $mime, $extensao);
+        }
+
         $metadata = json_encode([
             'name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, $tipo, $extensao),
             'parents' => [$pastaId],
@@ -323,6 +328,48 @@ class ClientePastaDrive
             }
             $offset += $len;
         }
+
+        return $id === '' ? 'ok' : $id;
+    }
+
+    /**
+     * Capa (até 2 MB): multipart. Resumable exige pacote ≥ 256 KiB se não for o último.
+     *
+     * @param  resource  $stream
+     */
+    private function enviarMultipartPequeno(
+        string $token,
+        string $pastaId,
+        Aula $aula,
+        $stream,
+        string $mime,
+        string $extensao,
+    ): string {
+        $bytes = stream_get_contents($stream);
+        if ($bytes === false || $bytes === '') {
+            throw new RuntimeException('Não foi possível ler a capa para a pasta compartilhada.');
+        }
+
+        $boundary = 'educraft_'.bin2hex(random_bytes(12));
+        $meta = json_encode([
+            'name' => CaminhoDaBiblioteca::nomeArquivoDrive($aula, 'capa', $extensao),
+            'parents' => [$pastaId],
+        ], JSON_UNESCAPED_UNICODE);
+        $corpo = '--'.$boundary."\r\n"
+            ."Content-Type: application/json; charset=UTF-8\r\n\r\n"
+            .$meta."\r\n"
+            .'--'.$boundary."\r\n"
+            .'Content-Type: '.$mime."\r\n\r\n"
+            .$bytes."\r\n"
+            .'--'.$boundary.'--';
+
+        $resposta = Http::timeout(max(30, (int) config('biblioteca.drive.timeout', 15)))
+            ->withToken($token)
+            ->withBody($corpo, 'multipart/related; boundary='.$boundary)
+            ->post('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true')
+            ->throw();
+
+        $id = (string) ($resposta->json('id') ?? '');
 
         return $id === '' ? 'ok' : $id;
     }

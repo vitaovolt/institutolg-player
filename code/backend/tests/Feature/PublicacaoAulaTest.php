@@ -26,13 +26,18 @@ class PublicacaoAulaTest extends TestCase
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'publicada' => false]);
     }
 
-    public function test_publicar_aula_pronta_entra_na_cobranca(): void
+    public function test_publicar_aula_pronta_libera_o_aluno_e_nao_muda_a_cobranca(): void
     {
         $this->comoCoordenacao();
         $aula = $this->gravarPlay(Aula::factory()->enviada()->create([
             'titulo' => 'Aula a publicar',
             'publicada' => false,
         ]));
+
+        $this->getJson('/api/v1/resumo-mes')
+            ->assertOk()
+            ->assertJsonPath('data.publicadas', 0)
+            ->assertJsonPath('data.valor_aulas_publicadas', 3.8);
 
         $this->postJson("/api/v1/aulas/{$aula->id}/publicar")
             ->assertOk()
@@ -64,7 +69,7 @@ class PublicacaoAulaTest extends TestCase
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'publicada' => false]);
     }
 
-    public function test_despublicar_tira_da_cobranca_e_e_idempotente(): void
+    public function test_despublicar_tira_do_aluno_e_mantem_a_cobranca(): void
     {
         $this->comoCoordenacao();
         $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'Publicada']));
@@ -78,7 +83,7 @@ class PublicacaoAulaTest extends TestCase
         $this->getJson('/api/v1/resumo-mes')
             ->assertOk()
             ->assertJsonPath('data.publicadas', 0)
-            ->assertJsonPath('data.valor_aulas_publicadas', 0);
+            ->assertJsonPath('data.valor_aulas_publicadas', 3.8);
 
         $this->postJson("/api/v1/aulas/{$aula->id}/despublicar")->assertOk();
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'publicada' => false]);

@@ -50,7 +50,7 @@ export default function CustosPage() {
           <p className="m-0 text-xs font-extrabold tracking-[0.14em] uppercase text-[var(--brand-primary)]">Custos</p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">Painel da mensalidade</h1>
           <p className="mt-2 max-w-xl text-[var(--brand-muted)]">
-            R$ 287 do painel + R$ 3,80 por aula publicada agora. Envio sem publicar não entra na cobrança.
+            R$ 287 do painel + R$ 3,80 por aula enviada. Publicar só libera o aluno; não muda a cobrança.
           </p>
         </div>
         <label className="text-sm font-bold text-[var(--brand-primary)]">
@@ -75,12 +75,12 @@ export default function CustosPage() {
             <p className="m-0 text-xs font-extrabold tracking-[0.16em] uppercase text-[var(--brand-accent)]">
               {formatarCompetenciaExtenso(resumo.competencia)}
             </p>
-            <p className="mt-2 text-sm text-white/80">Custo estimado com as aulas publicadas agora</p>
+            <p className="mt-2 text-sm text-white/80">Custo estimado com as aulas enviadas agora</p>
             <p className="mt-1 text-5xl font-extrabold tracking-tight text-[var(--brand-accent)]" data-testid="custo-total">
               {formatarReais(resumo.total)}
             </p>
             <p className="mt-3 text-sm text-white/85">
-              {formatarReais(resumo.mensalidade_painel)} do painel + {resumo.publicadas} ×{' '}
+              {formatarReais(resumo.mensalidade_painel)} do painel + {resumo.total_importadas} ×{' '}
               {formatarReais(resumo.preco_aula_publicada)}
             </p>
           </section>
@@ -96,13 +96,13 @@ export default function CustosPage() {
               testId="kpi-publicadas"
               rotulo="Publicadas agora"
               valor={resumo.publicadas}
-              detalhe={`${formatarReais(resumo.valor_aulas_publicadas)} na linha de aulas`}
+              detalhe="Aluno assiste na Eduq"
             />
             <CartaoKpi
               testId="kpi-importadas"
-              rotulo="Total já importadas"
+              rotulo="Na cobrança"
               valor={resumo.total_importadas}
-              detalhe="Todas as aulas enviadas, de qualquer mês"
+              detalhe={`${formatarReais(resumo.valor_aulas_publicadas)} na linha de aulas`}
             />
           </section>
 

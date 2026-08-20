@@ -594,7 +594,7 @@ paths:
       - $ref: '#/components/parameters/AulaId'
     post:
       operationId: publicarAula
-      summary: Aula entra na biblioteca do aluno e na linha de R$ 3,80
+      summary: Aula entra na biblioteca do aluno (a cobrança já começa no envio)
       tags: [Aulas]
       responses:
         '200':
@@ -608,7 +608,7 @@ paths:
       - $ref: '#/components/parameters/AulaId'
     post:
       operationId: despublicarAula
-      summary: Tira da biblioteca do aluno e da cobrança; HTML na Eduq não some sozinho
+      summary: Tira da biblioteca do aluno; HTML na Eduq não some sozinho; cobrança do envio permanece
       tags: [Aulas]
       responses:
         '200':

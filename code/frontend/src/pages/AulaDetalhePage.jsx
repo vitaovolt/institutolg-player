@@ -231,7 +231,9 @@ export default function AulaDetalhePage() {
         </div>
         <div className="rounded-[10px] border border-[var(--brand-line)] bg-[var(--brand-surface)] p-3">
           <p className="m-0 text-xs font-extrabold uppercase tracking-wider text-[var(--brand-muted)]">Cobrança</p>
-          <p className="mt-1 font-bold">{aula.publicada ? 'R$ 3,80/mês' : 'Fora da linha'}</p>
+          <p className="mt-1 font-bold" data-testid="status-cobranca">
+            {aula.enviado_em ? 'R$ 3,80/mês' : 'Fora da linha'}
+          </p>
         </div>
       </section>
 
@@ -352,7 +354,7 @@ export default function AulaDetalhePage() {
               type="button"
               data-testid="btn-publicar"
               disabled={ocupado}
-              onClick={() => comSubmit('publicar', () => publicarAula(aula.id), 'Aula publicada. Entra na linha de R$ 3,80.')}
+              onClick={() => comSubmit('publicar', () => publicarAula(aula.id), 'Aula publicada. O aluno passa a assistir na Eduq.')}
               className="rounded-lg border border-[var(--brand-line)] px-4 py-3 text-sm font-bold text-[var(--brand-primary)] disabled:opacity-70"
             >
               {ocupado && acao === 'publicar' ? 'Processando…' : 'Publicar'}
@@ -363,7 +365,7 @@ export default function AulaDetalhePage() {
               type="button"
               data-testid="btn-despublicar"
               disabled={ocupado}
-              onClick={() => comSubmit('despublicar', () => despublicarAula(aula.id), 'Aula despublicada. Saiu da cobrança.')}
+              onClick={() => comSubmit('despublicar', () => despublicarAula(aula.id), 'Aula despublicada. O aluno não assiste; a cobrança do envio continua.')}
               className="rounded-lg border border-[var(--brand-line)] px-4 py-3 text-sm font-bold text-[var(--brand-primary)] disabled:opacity-70"
             >
               {ocupado && acao === 'despublicar' ? 'Processando…' : 'Despublicar'}

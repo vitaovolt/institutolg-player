@@ -25,7 +25,7 @@
         .speeds {
             position: absolute;
             right: 8px;
-            bottom: 48px;
+            bottom: 96px;
             display: flex;
             gap: 2px;
             z-index: 2;
@@ -65,7 +65,7 @@
             .shell { padding: 8px; }
             h1 { font-size: .95rem; }
             video { max-height: calc(100svh - 72px); }
-            .speeds { bottom: 44px; right: 6px; }
+            .speeds { bottom: 88px; right: 6px; }
             .speeds button { font-size: .6rem; padding: 3px 6px; }
         }
     </style>

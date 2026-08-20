@@ -37,7 +37,8 @@ class MontarResumoDoMes
 
         $painel = (float) config('biblioteca.mensalidade_painel');
         $preco = (float) config('biblioteca.preco_aula_publicada');
-        $valorAulas = round($publicadas * $preco, 2);
+        // Cobrança no envio (enviado_em), não em publicada.
+        $valorAulas = round($totalImportadas * $preco, 2);
 
         return [
             'competencia' => $inicio->format('Y-m'),

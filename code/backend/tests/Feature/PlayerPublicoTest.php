@@ -58,7 +58,7 @@ class PlayerPublicoTest extends TestCase
             ->assertSee('data-testid="player-wrap"', false)
             ->assertSee('data-testid="player-speed-1"', false)
             ->assertSee('.player-wrap:hover .speeds', false)
-            ->assertSee('bottom: 48px', false)
+            ->assertSee('bottom: 96px', false)
             ->assertSee('data-testid="player-speed-1-5"', false)
             ->assertSee('data-testid="player-speed-2"', false)
             ->assertSee('data-testid="player-speed-4"', false)

@@ -2,6 +2,7 @@
 
 return [
     'mensalidade_painel' => 287.00,
+    // R$ 3,80 por aula com envio concluído (enviado_em), publicada ou não.
     'preco_aula_publicada' => 3.80,
     // Export MP4 (não o projeto de edição ~45 GB). 35 GB exige PUT por partes no objeto — não pelo PHP.
     'upload_max_bytes' => (int) env('BIBLIOTECA_UPLOAD_MAX_BYTES', 35 * 1024 * 1024 * 1024),

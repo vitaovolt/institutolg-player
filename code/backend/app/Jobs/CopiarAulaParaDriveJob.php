@@ -68,11 +68,19 @@ class CopiarAulaParaDriveJob implements ShouldQueue, ShouldBeUnique
                     $tamanhoVideo = (int) $disk->size($aula->chave_play);
                 }
 
-                if (filled($aula->chave_capa) && $disk->exists($aula->chave_capa)) {
+                if (filled($aula->chave_capa) && ! filled($aula->drive_capa_file_id)) {
                     $extCapa = pathinfo((string) $aula->chave_capa, PATHINFO_EXTENSION) ?: 'jpg';
-                    if (! filled($aula->drive_capa_file_id)) {
+                    try {
                         $streamCapa = LerInicioDoArquivoDaBiblioteca::stream($aula->chave_capa);
-                        $tamanhoCapa = (int) $disk->size($aula->chave_capa);
+                        try {
+                            $tamanhoCapa = (int) $disk->size($aula->chave_capa);
+                        } catch (Throwable) {
+                            $tamanhoCapa = null;
+                        }
+                    } catch (Throwable $e) {
+                        report($e);
+                        $streamCapa = null;
+                        $tamanhoCapa = null;
                     }
                 }
 

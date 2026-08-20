@@ -9,6 +9,7 @@ use App\Models\Aula;
 use App\Services\Integrations\ClientePastaDrive;
 use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarExportMp4;
+use App\Support\ValidarFotoCapa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -60,6 +61,49 @@ class CopiaDriveTest extends TestCase
         $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->fresh()->disciplina, (string) $aula->titulo));
         $drive->assertExists($capa);
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'status_drive' => 'ok']);
+    }
+
+    public function test_conta_de_servico_envia_capa_por_multipart_e_nao_por_resumable(): void
+    {
+        $json = $this->arquivoContaDeServicoTemporario();
+        config([
+            'biblioteca.drive.fake' => false,
+            'biblioteca.drive.upload_url' => '',
+            'biblioteca.drive.service_account_path' => $json,
+            'biblioteca.drive.folder_id' => 'pasta-piloto',
+        ]);
+
+        $png = ValidarFotoCapa::amostraPng();
+        Http::fake(function (Request $request) {
+            if ($request->url() === 'https://oauth2.googleapis.com/token') {
+                return Http::response(['access_token' => 'tok-drive'], 200);
+            }
+            if (str_contains($request->url(), 'uploadType=resumable')) {
+                return Http::response(['message' => 'capa nao usa resumable'], 400);
+            }
+            if (str_contains($request->url(), 'uploadType=multipart') && $request->method() === 'POST') {
+                $this->assertStringContainsString('image/png', $request->body());
+                $this->assertStringContainsString('_capa.png', $request->body());
+
+                return Http::response(['id' => 'capa-drive-1'], 200);
+            }
+            if (str_contains($request->url(), 'www.googleapis.com/drive/v3/files') && $request->method() === 'GET') {
+                return Http::response(['files' => []], 200);
+            }
+            if (str_contains($request->url(), 'www.googleapis.com/drive/v3/files') && $request->method() === 'POST') {
+                return Http::response(['id' => 'pasta-criada'], 200);
+            }
+
+            return Http::response(['message' => 'inesperado'], 500);
+        });
+
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'Aula 37']));
+        $id = app(ClientePastaDrive::class)->enviarCopia($aula, $png, strlen($png), 'capa', 'png');
+
+        $this->assertSame('capa-drive-1', $id);
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'uploadType=multipart'));
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'uploadType=resumable'));
+        @unlink($json);
     }
 
     public function test_falha_http_marca_erro_sem_derrubar_o_play(): void
