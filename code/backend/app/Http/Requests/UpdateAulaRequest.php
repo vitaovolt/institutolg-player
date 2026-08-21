@@ -31,6 +31,13 @@ class UpdateAulaRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'titulo.unique' => 'Já existe uma aula com este título nesta disciplina.',
+        ];
+    }
+
     protected function prepareForValidation(): void
     {
         if ($this->exists('titulo')) {

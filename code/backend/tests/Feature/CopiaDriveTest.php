@@ -461,11 +461,13 @@ class CopiaDriveTest extends TestCase
         $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
         $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
 
+        Queue::fake();
         $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Nome novo'])->assertOk();
         $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
         $drive->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
+        Queue::assertPushed(CopiarAulaParaDriveJob::class);
 
-        $this->postJson("/api/v1/aulas/{$aula->id}/drive/sincronizar")->assertOk();
+        (new CopiarAulaParaDriveJob($aula->id))->handle(app(ClientePastaDrive::class));
 
         $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
         $this->assertSame(

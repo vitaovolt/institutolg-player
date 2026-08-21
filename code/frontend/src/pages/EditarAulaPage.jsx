@@ -4,6 +4,20 @@ import { atualizarAula, fetchAula } from '../api/aulas'
 import Button from '../components/ui/Button.jsx'
 import { useToast } from '../context/ToastContext'
 
+function mensagemAoSalvar(err) {
+  const status = err.response?.status
+  const data = err.response?.data
+  if (data?.errors?.titulo?.[0]) {
+    return data.errors.titulo[0]
+  }
+  const msg = data?.message
+  if (!status || status >= 500 || msg === 'Server Error') {
+    return 'Não foi possível salvar o nome. Tente de novo.'
+  }
+
+  return msg || err.message || 'Não foi possível salvar. Tente de novo.'
+}
+
 export default function EditarAulaPage() {
   const { aulaId } = useParams()
   const navigate = useNavigate()
@@ -51,7 +65,7 @@ export default function EditarAulaPage() {
         state: { toast: 'Nome da aula atualizado.', tone: 'ok' },
       })
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Não foi possível salvar. Tente de novo.'
+      const msg = mensagemAoSalvar(err)
       setError(msg)
       mostrarToast(msg, 'erro')
       submittingRef.current = false
@@ -85,8 +99,9 @@ export default function EditarAulaPage() {
       </p>
       <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">{aula.titulo}</h1>
       <p className="mt-2 text-[var(--brand-muted)]">
-        O nome no play é atualizado. A pasta compartilhada só muda quando você clicar em{' '}
-        <strong>Sincronizar com Google Drive</strong> no detalhe da aula.
+        Este nome é o que o aluno vê no player. A pasta compartilhada é atualizada em seguida (só o
+        nome do arquivo). Não renomeie no Drive: isso não muda o player e, numa importação, pode
+        criar outra aula.
       </p>
 
       <form

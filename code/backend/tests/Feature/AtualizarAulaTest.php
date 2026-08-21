@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\CopiarAulaParaDriveJob;
 use App\Models\Aula;
 use App\Support\CaminhoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -30,15 +32,14 @@ class AtualizarAulaTest extends TestCase
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'titulo' => 'Permanece']);
     }
 
-    public function test_atualizar_titulo_move_play_e_capa_para_as_chaves_novas(): void
+    public function test_atualizar_titulo_nao_move_o_arquivo_do_play(): void
     {
+        Queue::fake();
         $this->comoCoordenacao();
         $aula = $this->aulaComPlayECapa('Nome antigo');
         $disciplina = $aula->disciplina;
         $videoAntigo = CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo');
         $capaAntiga = CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome antigo', 'png');
-        $videoNovo = CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo');
-        $capaNova = CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome novo', 'png');
         $aulas = Storage::disk((string) config('biblioteca.disk_aulas'));
 
         $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Nome novo'])
@@ -47,17 +48,33 @@ class AtualizarAulaTest extends TestCase
             ->assertJsonPath('data.titulo', 'Nome novo');
 
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'titulo' => 'Nome novo']);
-        $aulas->assertMissing($videoAntigo);
-        $aulas->assertMissing($capaAntiga);
-        $aulas->assertExists($videoNovo);
-        $aulas->assertExists($capaNova);
-        $this->assertSame($videoNovo, $aula->fresh()->chave_play);
-        $this->assertSame($videoNovo, $aula->fresh()->chave_arquivo);
-        $this->assertSame($capaNova, $aula->fresh()->chave_capa);
+        $aulas->assertExists($videoAntigo);
+        $aulas->assertExists($capaAntiga);
+        $aulas->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
+        $this->assertSame($videoAntigo, $aula->fresh()->chave_play);
+        $this->assertSame($capaAntiga, $aula->fresh()->chave_capa);
+        Queue::assertPushed(CopiarAulaParaDriveJob::class, fn (CopiarAulaParaDriveJob $job) => $job->aulaId === $aula->id);
     }
 
-    public function test_atualizar_titulo_move_play_e_nao_a_pasta_compartilhada(): void
+    public function test_aluno_ve_o_titulo_novo_no_player(): void
     {
+        Queue::fake();
+        $this->comoCoordenacao();
+        $aula = $this->aulaComPlayECapa('bfb-oaxi-pcm EDITADO');
+
+        $this->putJson("/api/v1/aulas/{$aula->id}", [
+            'titulo' => 'D5 Doenças inflamatórias intestinais',
+        ])->assertOk();
+
+        $this->get('/assistir/'.$aula->fresh()->token_publico)
+            ->assertOk()
+            ->assertSee('D5 Doenças inflamatórias intestinais', false)
+            ->assertDontSee('bfb-oaxi-pcm', false);
+    }
+
+    public function test_atualizar_titulo_nao_move_a_pasta_compartilhada_no_request(): void
+    {
+        Queue::fake();
         $this->comoCoordenacao();
         $aula = $this->aulaComPlayECapa('Nome antigo');
         $disciplina = $aula->disciplina;
@@ -70,11 +87,12 @@ class AtualizarAulaTest extends TestCase
         $drive->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
         $drive->assertExists(CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome antigo', 'png'));
         $drive->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'));
-        $drive->assertMissing(CaminhoDaBiblioteca::chaveCapaPara($disciplina, 'Nome novo', 'png'));
+        Queue::assertPushed(CopiarAulaParaDriveJob::class);
     }
 
-    public function test_editar_titulo_nao_chama_cliente_da_pasta(): void
+    public function test_editar_titulo_nao_chama_cliente_da_pasta_no_request(): void
     {
+        Queue::fake();
         Http::fake();
         $this->mock(\App\Services\Integrations\ClientePastaDrive::class, function ($mock) {
             $mock->shouldNotReceive('enviarCopia');
@@ -89,36 +107,36 @@ class AtualizarAulaTest extends TestCase
             ->assertJsonPath('data.titulo', 'Nome novo');
 
         Http::assertNothingSent();
+        Queue::assertPushed(CopiarAulaParaDriveJob::class);
     }
 
-    public function test_erro_403_na_pasta_nao_impede_editar_o_play(): void
+    public function test_titulo_duplicado_na_mesma_disciplina_retorna_422(): void
     {
-        $json = $this->arquivoContaDeServicoTemporario();
-        config([
-            'biblioteca.drive.fake' => false,
-            'biblioteca.drive.pausado' => false,
-            'biblioteca.drive.upload_url' => '',
-            'biblioteca.drive.service_account_path' => $json,
-            'biblioteca.drive.folder_id' => 'pasta-piloto',
-        ]);
-        Http::fake([
-            'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'tok-drive'], 200),
-            'https://www.googleapis.com/drive/v3/*' => Http::response(['error' => ['message' => 'quota']], 403),
-        ]);
-
         $this->comoCoordenacao();
-        $aula = $this->aulaComPlayECapa('Nome antigo');
-        $disciplina = $aula->disciplina;
+        $aula = Aula::factory()->create(['titulo' => 'Aula A']);
+        Aula::factory()->create([
+            'disciplina_id' => $aula->disciplina_id,
+            'titulo' => 'Aula B',
+        ]);
 
-        $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Nome novo'])
+        $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Aula B'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.titulo.0', 'Já existe uma aula com este título nesta disciplina.');
+
+        $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'titulo' => 'Aula A']);
+    }
+
+    public function test_rascunho_nao_enfileira_copia_ao_renomear(): void
+    {
+        Queue::fake();
+        $this->comoCoordenacao();
+        $aula = Aula::factory()->create(['titulo' => 'Rascunho']);
+
+        $this->putJson("/api/v1/aulas/{$aula->id}", ['titulo' => 'Rascunho novo'])
             ->assertOk()
-            ->assertJsonPath('data.titulo', 'Nome novo');
+            ->assertJsonPath('data.titulo', 'Rascunho novo');
 
-        Storage::disk((string) config('biblioteca.disk_aulas'))
-            ->assertExists(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome novo'))
-            ->assertMissing(CaminhoDaBiblioteca::chaveVideo($disciplina, 'Nome antigo'));
-
-        @unlink($json);
+        Queue::assertNotPushed(CopiarAulaParaDriveJob::class);
     }
 
     private function aulaComPlayECapa(string $titulo): Aula
@@ -138,22 +156,5 @@ class AtualizarAulaTest extends TestCase
         ]);
 
         return $aula->fresh(['disciplina.turma.curso']);
-    }
-
-    private function arquivoContaDeServicoTemporario(): string
-    {
-        $chave = openssl_pkey_new([
-            'private_key_bits' => 2048,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ]);
-        $this->assertNotFalse($chave);
-        openssl_pkey_export($chave, $pem);
-        $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'ilg-drive-sa-'.uniqid('', true).'.json';
-        file_put_contents($path, json_encode([
-            'client_email' => 'copia@educraft.iam.gserviceaccount.com',
-            'private_key' => $pem,
-        ]));
-
-        return $path;
     }
 }

@@ -216,6 +216,7 @@ test.describe('F4 módulos', () => {
     await page.getByTestId('btn-editar-aula').click()
     await expect(page.getByTestId('pagina-editar-aula')).toBeVisible()
     await expect(page.getByTestId('pagina-editar-aula')).toContainText('pasta compartilhada')
+    await expect(page.getByTestId('pagina-editar-aula')).toContainText('aluno vê')
     await expect(page.getByTestId('pagina-editar-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)
 
     const novoNome = `Aula editada E2E ${Date.now()}`
