@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Aula;
+use App\Jobs\CopiarAulaParaDriveJob;
 use App\Support\ValidarExportMp4;
 use App\Support\ValidarFotoCapa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -43,7 +45,7 @@ class CapaAulaTest extends TestCase
 
         $aula = $aula->fresh();
         $this->assertNotEmpty($aula->chave_capa);
-        $this->assertSame('pendente', $aula->status_drive);
+        $this->assertSame('ok', $aula->status_drive);
         $this->assertSame(
             \App\Support\CaminhoDaBiblioteca::chaveCapa($aula, 'png'),
             $aula->chave_capa
@@ -72,10 +74,27 @@ class CapaAulaTest extends TestCase
         $this->assertDatabaseHas('aulas', ['id' => $aula->id, 'chave_capa' => null]);
     }
 
+    public function test_salvar_capa_em_aula_pronta_enfileira_copia_drive(): void
+    {
+        Queue::fake();
+        $this->comoCoordenacao();
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create([
+            'titulo' => 'Capa dispara sync',
+            'status_drive' => 'ok',
+        ]));
+        $png = UploadedFile::fake()->createWithContent('capa.png', ValidarFotoCapa::amostraPng());
+
+        $this->post("/api/v1/aulas/{$aula->id}/capa", ['capa' => $png], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.status_drive', 'enviando');
+
+        Queue::assertPushed(CopiarAulaParaDriveJob::class, fn (CopiarAulaParaDriveJob $job) => $job->aulaId === $aula->id);
+    }
+
     public function test_remover_capa_apaga_arquivo(): void
     {
         $this->comoCoordenacao();
-        $aula = Aula::factory()->create();
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create());
         $png = UploadedFile::fake()->createWithContent('capa.png', ValidarFotoCapa::amostraPng());
         $this->post("/api/v1/aulas/{$aula->id}/capa", ['capa' => $png], ['Accept' => 'application/json'])->assertOk();
         $path = $aula->fresh()->chave_capa;

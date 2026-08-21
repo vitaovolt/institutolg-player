@@ -105,6 +105,7 @@ class EnvioAulaTest extends TestCase
         $this->assertNotNull(Aula::query()->find($aulaId)?->enviado_em);
         Queue::assertPushedOn('biblioteca', PrepararVersaoDaAulaJob::class);
         Queue::assertPushed(PrepararVersaoDaAulaJob::class, fn (PrepararVersaoDaAulaJob $job) => $job->aulaId === $aulaId);
+        // A cópia sobe no job de preparar (após ficar pronta), não no concluir.
         Queue::assertNotPushed(\App\Jobs\CopiarAulaParaDriveJob::class);
 
         Queue::fake();
@@ -137,13 +138,13 @@ class EnvioAulaTest extends TestCase
         $this->assertSame('pronta', $aula->status_preparo);
         $this->assertTrue($aula->publicada);
         $this->assertNotNull($aula->publicada_em);
-        $this->assertSame('pendente', $aula->status_drive);
+        $this->assertSame('ok', $aula->status_drive);
         $this->assertNotEmpty($aula->chave_play);
         $this->assertSame($aula->chave_arquivo, $aula->chave_play);
         $this->assertNull($aula->token_upload);
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_play);
         Storage::disk((string) config('biblioteca.disk_drive'))
-            ->assertMissing(CaminhoDaBiblioteca::chaveVideo($aula->disciplina, 'Semiologia'));
+            ->assertExists(CaminhoDaBiblioteca::chaveVideo($aula->disciplina, 'Semiologia'));
 
         $show = $this->getJson("/api/v1/aulas/{$aulaId}")->assertOk();
         $show->assertJsonPath('data.status_preparo', 'pronta')

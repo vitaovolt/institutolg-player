@@ -6,10 +6,14 @@ use App\Models\Aula;
 use App\Support\LerInicioDoArquivoDaBiblioteca;
 use App\Support\ValidarExportMp4;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PrepararVersaoDaAula
 {
-    public function __construct(private PublicarAulaSeNova $publicarSeNova) {}
+    public function __construct(
+        private PublicarAulaSeNova $publicarSeNova,
+        private SincronizarAulaComDrive $sincronizarDrive,
+    ) {}
 
     public function handle(Aula $aula): Aula
     {
@@ -63,6 +67,21 @@ class PrepararVersaoDaAula
             $disk->delete($playAnterior);
         }
 
-        return $this->publicarSeNova->handle($aula->fresh());
+        $aula = $this->publicarSeNova->handle($aula->fresh());
+
+        return $this->enfileirarCopiaSePronta($aula);
+    }
+
+    private function enfileirarCopiaSePronta(Aula $aula): Aula
+    {
+        if (! $aula->estaProntaParaAssistir()) {
+            return $aula;
+        }
+
+        try {
+            return $this->sincronizarDrive->handle($aula);
+        } catch (HttpException) {
+            return $aula->fresh();
+        }
     }
 }

@@ -15,7 +15,11 @@ class RemoverCapaDaAula
             $disk->delete($aula->chave_capa);
         }
 
-        $aula->update(['chave_capa' => null]);
+        $aula->update([
+            'chave_capa' => null,
+            'status_drive' => 'pendente',
+            'drive_capa_file_id' => null,
+        ]);
 
         return $aula->fresh();
     }

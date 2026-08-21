@@ -15,10 +15,12 @@ Há dois botões (sentidos opostos):
 
 | Botão | Sentido |
 |-------|---------|
-| **Sincronizar com Google Drive** (no detalhe da aula) | play → pasta |
+| **Tentar de novo** (só se a cópia falhou/pendente) | play → pasta (manual) |
 | **Importar da pasta compartilhada** (na Biblioteca) | pasta → cadastro + play |
 
-A importação lê **3 níveis** a partir da pasta raiz: curso → turma → disciplina → MP4. Não publica sozinha. R$ 3,80 vale no `enviado_em`. Recorrente: o mesmo job na fila `biblioteca` + `schedule:run` a cada hora (além do botão).
+A cópia play → pasta sobe **sozinha** quando a aula fica pronta (envio/substituição) ou quando a capa muda. Continua idempotente (mesmo tamanho = não reenvia).
+
+A importação lê **3 níveis** a partir da pasta raiz: curso → turma → disciplina → MP4. R$ 3,80 vale no `enviado_em`. Recorrente: o mesmo job na fila `biblioteca` + `schedule:run` a cada hora (além do botão).
 
 ## O que **não** contratar
 
@@ -198,11 +200,10 @@ Reinicie o worker da fila.
 ### B4. Conferir a cópia
 
 1. No painel, envie um MP4 **pequeno** e espere **Pronta**.
-2. No detalhe da aula, clique em **Sincronizar com Google Drive** (a cópia **não** sobe sozinha após o envio).
-3. Status da cópia deve ir para **Ok**.
-4. Abra a pasta no Drive: deve existir **Curso → Turma → Disciplina**; o MP4 e a capa (se houver) ficam dentro da disciplina, com o título da aula.
+2. A cópia para a pasta sobe **sozinha** (status da cópia → **Ok**). Só use **Tentar de novo** se ficar em erro/pendente.
+3. Abra a pasta no Drive: deve existir **Curso → Turma → Disciplina**; o MP4 e a capa (se houver) ficam dentro da disciplina, com o título da aula.
 
-Se a cópia der erro e a aula estiver Pronta: o play está ok; use o mesmo botão de novo. Causas típicas: pasta não compartilhada com o e-mail da conta de serviço, Drive API desligada, JSON no path errado. A exclusão no painel **não** apaga a pasta compartilhada.
+Se a cópia der erro e a aula estiver Pronta: o play está ok; use **Tentar de novo**. Causas típicas: pasta não compartilhada com o e-mail da conta de serviço, Drive API desligada, JSON no path errado. A exclusão no painel **não** apaga a pasta compartilhada.
 
 ---
 

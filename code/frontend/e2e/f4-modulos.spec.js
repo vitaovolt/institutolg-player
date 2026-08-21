@@ -12,8 +12,8 @@ test.describe('F4 módulos', () => {
 
     await page.getByTestId('aula-Introdução').getByRole('link', { name: 'Introdução' }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
-    await expect(page.getByTestId('btn-sync-drive')).toBeVisible()
-    await expect(page.getByTestId('btn-sync-drive')).toHaveText('Sincronizar com Google Drive')
+    await expect(page.getByTestId('status-drive')).toHaveText('Ok')
+    await expect(page.getByTestId('btn-sync-drive')).toHaveCount(0)
     await expect(page.getByTestId('html-iframe')).toHaveValue(/iframe src=".*\/assistir\//)
     await expect(page.getByTestId('status-publicada')).toHaveText('Sim')
 
@@ -260,13 +260,9 @@ test.describe('F4 módulos', () => {
     await expect(page.getByTestId('pagina-biblioteca')).toBeVisible({ timeout: 45_000 })
     await page.getByTestId(`aula-${titulo}`).getByRole('link', { name: titulo }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
-    await expect(page.getByTestId('btn-sync-drive')).toBeVisible({ timeout: 45_000 })
     await expect(page.getByTestId('status-publicada')).toHaveText('Sim')
-    await expect(page.getByTestId('btn-sync-drive')).toHaveText('Sincronizar com Google Drive')
-    await expect(page.getByTestId('ajuda-sync-drive')).toContainText('Não apaga outros arquivos da pasta')
+    await expect(page.getByTestId('status-drive')).toHaveText('Ok', { timeout: 45_000 })
+    await expect(page.getByTestId('btn-sync-drive')).toHaveCount(0)
     await expect(page.getByTestId('pagina-detalhe-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)
-
-    await page.getByTestId('btn-sync-drive').click()
-    await expect(page.getByTestId('toast')).toContainText('pasta compartilhada')
   })
 })

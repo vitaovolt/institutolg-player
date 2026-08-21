@@ -157,10 +157,11 @@ export default function AulaDetalhePage() {
   const pronta = aula.pronta_para_assistir
   const ocupado = submitting
   const sincronizandoDrive = aula.status_drive === 'enviando'
+  const precisaRetryDrive = pronta && (aula.status_drive === 'erro' || aula.status_drive === 'pendente')
 
   async function sincronizarPasta() {
     if (submittingRef.current) return
-    if (!pronta || aula.status_drive === 'enviando') return
+    if (!precisaRetryDrive || aula.status_drive === 'enviando') return
     submittingRef.current = true
     setSubmitting(true)
     setAcao('drive')
@@ -244,7 +245,8 @@ export default function AulaDetalhePage() {
       </p>
 
       <p className="mt-3 text-sm text-[var(--brand-muted)]">
-        O envio já publica a aula. Só use Publicar de novo se tiver despublicado.
+        O envio já publica a aula e dispara a cópia para a pasta compartilhada. Só use Publicar de novo se tiver
+        despublicado.
       </p>
 
       {sincronizandoDrive ? (
@@ -375,7 +377,7 @@ export default function AulaDetalhePage() {
               {ocupado && acao === 'despublicar' ? 'Processando…' : 'Despublicar'}
             </button>
           ) : null}
-          {pronta ? (
+          {precisaRetryDrive ? (
             <div className="flex min-w-[16rem] flex-1 flex-col gap-2">
               <button
                 type="button"
@@ -388,12 +390,11 @@ export default function AulaDetalhePage() {
                   ? 'Sincronizando…'
                   : ocupado && acao === 'drive'
                     ? 'Processando…'
-                    : 'Sincronizar com Google Drive'}
+                    : 'Tentar de novo'}
               </button>
               <p className="m-0 text-xs text-[var(--brand-muted)]" data-testid="ajuda-sync-drive">
-                Cria ou atualiza as pastas (curso, turma, disciplina) e o arquivo da aula na pasta compartilhada. Se o
-                vídeo ou a capa já estiverem iguais, não envia de novo. Se alguém apagou lá ou o arquivo na plataforma
-                mudou, envia de novo. Não apaga outros arquivos da pasta.
+                A cópia sobe sozinha após o envio ou a troca de capa. Use este botão só se a cópia falhou ou ficou
+                pendente. Não apaga outros arquivos da pasta.
               </p>
             </div>
           ) : null}

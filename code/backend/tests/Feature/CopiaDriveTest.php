@@ -357,13 +357,9 @@ class CopiaDriveTest extends TestCase
         Queue::assertPushed(CopiarAulaParaDriveJob::class, 1);
     }
 
-    public function test_preparar_aula_nao_dispara_copia_na_fila_biblioteca(): void
+    public function test_preparar_aula_dispara_copia_na_fila_biblioteca(): void
     {
         Queue::fake();
-        $this->mock(ClientePastaDrive::class, function ($mock) {
-            $mock->shouldNotReceive('enviarCopia');
-            $mock->shouldNotReceive('sincronizarAula');
-        });
         $aula = Aula::factory()->create([
             'status_preparo' => 'preparando',
             'chave_arquivo' => 'origens/ok.mp4',
@@ -376,9 +372,10 @@ class CopiaDriveTest extends TestCase
         $this->assertDatabaseHas('aulas', [
             'id' => $aula->id,
             'status_preparo' => 'pronta',
-            'status_drive' => 'pendente',
+            'status_drive' => 'enviando',
         ]);
-        Queue::assertNotPushed(CopiarAulaParaDriveJob::class);
+        Queue::assertPushedOn('biblioteca', CopiarAulaParaDriveJob::class);
+        Queue::assertPushed(CopiarAulaParaDriveJob::class, fn (CopiarAulaParaDriveJob $job) => $job->aulaId === $aula->id);
     }
 
     public function test_sincronizar_grava_pastas_e_arquivo_no_disco_fake(): void
