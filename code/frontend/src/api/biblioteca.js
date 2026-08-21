@@ -19,3 +19,8 @@ export async function fetchResumoMes(mes) {
   const { data } = await client.get('/resumo-mes', { params: mes ? { mes } : {} })
   return data
 }
+
+export async function fetchCustoArmazenamento() {
+  const { data } = await client.get('/ops/custo-armazenamento')
+  return data
+}

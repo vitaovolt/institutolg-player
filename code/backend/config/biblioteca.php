@@ -2,8 +2,16 @@
 
 return [
     'mensalidade_painel' => 287.00,
-    // R$ 3,80 por aula com envio concluído (enviado_em), publicada ou não.
+    // R$ 3,80 por vídeo com envio concluído (enviado_em), publicada ou não. Capa não entra.
     'preco_aula_publicada' => 3.80,
+    // Painel ops (/ops/armazenamento): e-mails Educraft (vírgula). Comparação case-insensitive.
+    'ops_emails' => array_values(array_filter(array_map(
+        static fn (string $email): string => strtolower(trim($email)),
+        explode(',', (string) env('BIBLIOTECA_OPS_EMAILS', 'educraft.ti@gmail.com')),
+    ))),
+    // Estimativa R2 Standard (só storage; Class A/B fora). Capas fora do cálculo.
+    'r2_storage_usd_por_gb' => (float) env('BIBLIOTECA_R2_STORAGE_USD_POR_GB', 0.015),
+    'r2_storage_free_gb' => (float) env('BIBLIOTECA_R2_STORAGE_FREE_GB', 10),
     // Export MP4 (não o projeto de edição ~45 GB). 35 GB exige PUT por partes no objeto — não pelo PHP.
     'upload_max_bytes' => (int) env('BIBLIOTECA_UPLOAD_MAX_BYTES', 35 * 1024 * 1024 * 1024),
     'upload_part_bytes' => (int) env('BIBLIOTECA_UPLOAD_PART_BYTES', 100 * 1024 * 1024),

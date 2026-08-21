@@ -9,6 +9,7 @@ import EnviarAulaPage from './pages/EnviarAulaPage.jsx'
 import AulaDetalhePage from './pages/AulaDetalhePage.jsx'
 import ColarEduqPage from './pages/ColarEduqPage.jsx'
 import CustosPage from './pages/CustosPage.jsx'
+import OpsArmazenamentoPage from './pages/OpsArmazenamentoPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import UsuariosPage from './pages/UsuariosPage.jsx'
 import EditarAulaPage from './pages/EditarAulaPage.jsx'
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/biblioteca" element={<Painel><BibliotecaPage /></Painel>} />
             <Route path="/organizar" element={<Navigate to="/biblioteca" replace />} />
             <Route path="/custos" element={<Painel><CustosPage /></Painel>} />
+            <Route path="/ops/armazenamento" element={<Painel><OpsArmazenamentoPage /></Painel>} />
             <Route path="/usuarios" element={<Painel><UsuariosPage /></Painel>} />
             <Route path="/aulas/:aulaId" element={<Painel><AulaDetalhePage /></Painel>} />
             <Route path="/aulas/:aulaId/editar" element={<Painel><EditarAulaPage /></Painel>} />

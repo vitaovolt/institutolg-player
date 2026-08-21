@@ -50,7 +50,8 @@ export default function CustosPage() {
           <p className="m-0 text-xs font-extrabold tracking-[0.14em] uppercase text-[var(--brand-primary)]">Custos</p>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--brand-ink)]">Painel da mensalidade</h1>
           <p className="mt-2 max-w-xl text-[var(--brand-muted)]">
-            R$ 287 do painel + R$ 3,80 por aula enviada. Publicar só libera o aluno; não muda a cobrança.
+            R$ 287 do painel + R$ 3,80 por vídeo enviado. Capa não entra na cobrança. Publicar só libera o
+            aluno; não muda a cobrança.
           </p>
         </div>
         <label className="text-sm font-bold text-[var(--brand-primary)]">
@@ -75,7 +76,7 @@ export default function CustosPage() {
             <p className="m-0 text-xs font-extrabold tracking-[0.16em] uppercase text-[var(--brand-accent)]">
               {formatarCompetenciaExtenso(resumo.competencia)}
             </p>
-            <p className="mt-2 text-sm text-white/80">Custo estimado com as aulas enviadas agora</p>
+            <p className="mt-2 text-sm text-white/80">Custo estimado com os vídeos enviados agora</p>
             <p className="mt-1 text-5xl font-extrabold tracking-tight text-[var(--brand-accent)]" data-testid="custo-total">
               {formatarReais(resumo.total)}
             </p>
@@ -102,12 +103,12 @@ export default function CustosPage() {
               testId="kpi-importadas"
               rotulo="Na cobrança"
               valor={resumo.total_importadas}
-              detalhe={`${formatarReais(resumo.valor_aulas_publicadas)} na linha de aulas`}
+              detalhe={`${formatarReais(resumo.valor_aulas_publicadas)} na linha de vídeos`}
             />
           </section>
 
           <section className="mt-8 rounded-2xl border border-[var(--brand-line)] bg-[var(--brand-surface)] p-5">
-            <h2 className="m-0 text-lg font-extrabold text-[var(--brand-primary)]">Aulas enviadas por mês</h2>
+            <h2 className="m-0 text-lg font-extrabold text-[var(--brand-primary)]">Vídeos enviados por mês</h2>
             <p className="mt-1 text-sm text-[var(--brand-muted)]">Últimos 12 meses até {formatarCompetencia(resumo.competencia)}.</p>
             <div className="mt-6 flex h-48 items-end gap-2 overflow-x-auto pb-2" data-testid="grafico-aulas-mes">
               {(resumo.aulas_por_mes || []).map((item) => {

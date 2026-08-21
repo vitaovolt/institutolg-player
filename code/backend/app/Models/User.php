@@ -62,6 +62,15 @@ class User extends Authenticatable
         return $this->ativo === true;
     }
 
+    public function podeVerOpsArmazenamento(): bool
+    {
+        $email = strtolower(trim((string) $this->email));
+        /** @var list<string> $permitidos */
+        $permitidos = config('biblioteca.ops_emails', []);
+
+        return $email !== '' && in_array($email, $permitidos, true);
+    }
+
     /**
      * @return array{id: int, name: string, email: string}
      */

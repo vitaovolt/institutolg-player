@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BibliotecaController;
 use App\Http\Controllers\Api\CapaAulaController;
 use App\Http\Controllers\Api\CopiaDriveController;
+use App\Http\Controllers\Api\CustoArmazenamentoController;
 use App\Http\Controllers\Api\CursoController;
 use App\Http\Controllers\Api\DisciplinaController;
 use App\Http\Controllers\Api\EnvioAulaController;
@@ -32,6 +33,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::get('/biblioteca/importar-pasta', [ImportarPastaController::class, 'mostrar']);
         Route::post('/biblioteca/importar-pasta', [ImportarPastaController::class, 'iniciar']);
         Route::get('/resumo-mes', ResumoDoMesController::class);
+        Route::get('/ops/custo-armazenamento', CustoArmazenamentoController::class);
         Route::apiResource('usuarios', UsuarioController::class)->parameters(['usuarios' => 'user']);
 
         Route::apiResource('cursos', CursoController::class);
