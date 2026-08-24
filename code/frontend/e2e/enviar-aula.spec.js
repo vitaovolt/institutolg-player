@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { amostraMp4, entrarComoCarolina, navPrincipal } from './helpers.js'
+import { amostraMp4, entrarComoCarolina, expandirBiblioteca, navPrincipal } from './helpers.js'
 
 test('login → enviar MP4 → volta à biblioteca da turma → Pronta', async ({ page }) => {
   await entrarComoCarolina(page)
   await expect(navPrincipal(page).getByRole('link', { name: 'Biblioteca' })).toBeVisible()
+  await expandirBiblioteca(page)
 
   await page.getByTestId('disciplina-Cardiologia').getByRole('link', { name: 'Enviar aula' }).click()
   await expect(page.getByRole('heading', { name: 'Cardiologia' })).toBeVisible()
@@ -27,6 +28,7 @@ test('login → enviar MP4 → volta à biblioteca da turma → Pronta', async (
 
 test('recusa arquivo que não é MP4 e o toast fecha no X', async ({ page }) => {
   await entrarComoCarolina(page)
+  await expandirBiblioteca(page)
   await page.getByTestId('disciplina-Cardiologia').getByRole('link', { name: 'Enviar aula' }).click()
 
   await page.getByLabel('Título da aula').fill('Arquivo errado')

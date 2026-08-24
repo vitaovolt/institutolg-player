@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { entrarComoCarolina, navPrincipal, amostraMp4, amostraPng } from './helpers.js'
+import { entrarComoCarolina, navPrincipal, amostraMp4, amostraPng, expandirBiblioteca } from './helpers.js'
 
 const API = 'http://127.0.0.1:8000'
 
@@ -9,6 +9,7 @@ test.describe('F4 módulos', () => {
     await entrarComoCarolina(page)
     await expect(navPrincipal(page).getByRole('link', { name: 'Custos' })).toBeVisible()
     await expect(navPrincipal(page).getByRole('link', { name: 'Usuários' })).toBeVisible()
+    await expandirBiblioteca(page)
 
     await page.getByTestId('aula-Introdução').getByRole('link', { name: 'Introdução' }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
@@ -41,6 +42,7 @@ test.describe('F4 módulos', () => {
 
   test('aluno assiste no embed da Eduq sem download', async ({ page, context }) => {
     await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
     await page.getByTestId('aula-Introdução').getByRole('link', { name: 'Introdução' }).click()
     const html = await page.getByTestId('html-iframe').inputValue()
     const src = html.match(/src="([^"]+)"/)?.[1]?.replace('localhost', '127.0.0.1')
@@ -74,6 +76,7 @@ test.describe('F4 módulos', () => {
 
   test('colar na Eduq mostra o widget Iframe', async ({ page }) => {
     await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
     await page.getByTestId('aula-Casos clínicos').getByRole('link', { name: 'Casos clínicos' }).click()
     await page.getByRole('link', { name: 'Colar na Eduq' }).click()
     await expect(page.getByTestId('pagina-colar-eduq')).toBeVisible()
@@ -87,6 +90,7 @@ test.describe('F4 módulos', () => {
     await expect(page.getByText('Resumo do mês')).toHaveCount(0)
     await expect(page.getByTestId('curso-Pós-graduação em Saúde').getByRole('button', { name: 'Editar' })).toBeVisible()
     await expect(page.getByTestId('curso-Pós-graduação em Saúde').getByRole('button', { name: 'Excluir' })).toBeVisible()
+    await expandirBiblioteca(page)
 
     const cursoId = await page.evaluate(async () => {
       const token = localStorage.getItem('ilg_token')
@@ -131,8 +135,32 @@ test.describe('F4 módulos', () => {
     await expect(page.getByTestId(`input-turma-${cursoId}`)).toBeVisible()
   })
 
+  test('biblioteca: começa recolhida e a busca filtra a árvore', async ({ page }) => {
+    await entrarComoCarolina(page)
+    await expect(page.getByTestId('curso-Pós-graduação em Saúde')).toBeVisible()
+    await expect(page.getByTestId('curso-Pós-graduação em Saúde-toggle')).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByTestId('aula-Introdução')).toHaveCount(0)
+
+    await page.getByTestId('input-busca-biblioteca').fill('Introdução')
+    await expect(page.getByTestId('aula-Introdução')).toBeVisible()
+    await expect(page.getByTestId('aula-Casos clínicos')).toHaveCount(0)
+
+    await page.getByTestId('input-busca-biblioteca').fill('Cardiologia')
+    await expect(page.getByTestId('disciplina-Cardiologia')).toBeVisible()
+    await expect(page.getByTestId('aula-Introdução')).toBeVisible()
+
+    await page.getByTestId('input-busca-biblioteca').fill('xyz-inexistente')
+    await expect(page.getByTestId('busca-sem-resultado')).toBeVisible()
+
+    await page.getByTestId('input-busca-biblioteca').fill('')
+    await expect(page.getByTestId('aula-Introdução')).toHaveCount(0)
+    await expect(page.getByTestId('curso-Pós-graduação em Saúde-toggle')).toHaveAttribute('aria-expanded', 'false')
+  })
+
   test('biblioteca: recolher/expandir e enviar tem capa opcional', async ({ page }) => {
     await entrarComoCarolina(page)
+    await expect(page.getByTestId('disciplina-Cardiologia')).toHaveCount(0)
+    await expandirBiblioteca(page)
     await expect(page.getByTestId('disciplina-Cardiologia').getByRole('link', { name: 'Enviar aula' })).toBeVisible()
     await page.getByTestId('btn-recolher').click()
     await expect(page.getByTestId('disciplina-Cardiologia')).toHaveCount(0)
@@ -146,6 +174,7 @@ test.describe('F4 módulos', () => {
 
   test('enviar MP4 já com capa opcional', async ({ page }) => {
     await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
     await page.getByTestId('disciplina-Cardiologia').getByRole('link', { name: 'Enviar aula' }).click()
     await page.getByLabel('Título da aula').fill('Aula com capa F4')
     await page.getByTestId('arquivo-mp4').setInputFiles({
@@ -165,6 +194,7 @@ test.describe('F4 módulos', () => {
 
   test('detalhe: envia foto de capa', async ({ page }) => {
     await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
     await page.getByTestId('aula-Introdução').getByRole('link', { name: 'Introdução' }).click()
     await page.getByTestId('arquivo-capa').setInputFiles({
       name: 'capa.png',
@@ -278,6 +308,7 @@ test.describe('F4 módulos', () => {
 
   test('detalhe: exclui a aula Revisão e volta à biblioteca', async ({ page }) => {
     await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
     await page.getByTestId('aula-Revisão').getByRole('link', { name: 'Revisão' }).click()
     await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
 
@@ -290,6 +321,7 @@ test.describe('F4 módulos', () => {
 
     await page.getByTestId('btn-excluir-aula').click()
     await expect(page.getByTestId('pagina-biblioteca')).toBeVisible()
+    await expandirBiblioteca(page)
     await expect(page.getByTestId('aula-Revisão')).toHaveCount(0)
     await expect(page.getByTestId('aula-Introdução')).toBeVisible()
     await expect(page.getByTestId('aula-Casos clínicos')).toBeVisible()
@@ -298,6 +330,7 @@ test.describe('F4 módulos', () => {
 
   test('detalhe: sincroniza aula de teste com a pasta compartilhada', async ({ page }) => {
     await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
     const titulo = `Aula sync Drive ${Date.now()}`
     await page.getByTestId('disciplina-Cardiologia').getByRole('link', { name: 'Enviar aula' }).click()
     await page.getByLabel('Título da aula').fill(titulo)

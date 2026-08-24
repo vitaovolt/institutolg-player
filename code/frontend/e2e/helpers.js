@@ -9,6 +9,10 @@ export async function entrarComoCarolina(page) {
   await expect(page.getByTestId('pagina-biblioteca')).toBeVisible()
 }
 
+export async function expandirBiblioteca(page) {
+  await page.getByTestId('btn-expandir').click()
+}
+
 export function navPrincipal(page) {
   return page.getByRole('navigation', { name: 'Principal' })
 }

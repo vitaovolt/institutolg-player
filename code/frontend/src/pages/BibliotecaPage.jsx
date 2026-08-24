@@ -20,6 +20,7 @@ import { useToast } from '../context/ToastContext'
 import {
   caminhoDoFoco,
   expandirArvore,
+  filtrarArvore,
   mesclarAberto,
   recolherArvore,
 } from '../services/arvoreAberta'
@@ -49,6 +50,7 @@ export default function BibliotecaPage() {
   const [novaTurma, setNovaTurma] = useState({})
   const [novaDisc, setNovaDisc] = useState({})
   const [excluindoId, setExcluindoId] = useState(null)
+  const [busca, setBusca] = useState('')
   const [searchParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -224,6 +226,9 @@ export default function BibliotecaPage() {
   }
 
   const ocupado = submitting || excluindoId != null || importando
+  const arvoreVisivel = filtrarArvore(arvore, busca)
+  const buscaAtiva = busca.trim() !== ''
+  const abertoVisivel = buscaAtiva ? expandirArvore(arvoreVisivel) : aberto
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-10" data-testid="pagina-biblioteca">
@@ -242,7 +247,19 @@ export default function BibliotecaPage() {
         <p className="mt-8 text-[var(--brand-muted)]">Carregando…</p>
       ) : (
         <>
-          <div className="mt-6">
+          <label className="mt-6 block text-sm font-bold text-[var(--brand-primary)]">
+            Buscar na biblioteca
+            <input
+              data-testid="input-busca-biblioteca"
+              type="search"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Curso, turma, disciplina ou aula"
+              className="mt-1 w-full rounded-lg border border-[var(--brand-line)] px-3 py-2 text-sm font-semibold text-[var(--brand-ink)]"
+            />
+          </label>
+
+          <div className="mt-4">
             <Button
               type="button"
               variant="secondary"
@@ -292,9 +309,16 @@ export default function BibliotecaPage() {
               <p className="rounded-[10px] border border-[var(--brand-line)] bg-[var(--brand-surface)] p-4 text-[var(--brand-muted)]">
                 Nenhum curso ainda. Cadastre o primeiro acima.
               </p>
+            ) : arvoreVisivel.length === 0 ? (
+              <p
+                className="rounded-[10px] border border-[var(--brand-line)] bg-[var(--brand-surface)] p-4 text-[var(--brand-muted)]"
+                data-testid="busca-sem-resultado"
+              >
+                Nenhum resultado para “{busca.trim()}”.
+              </p>
             ) : (
-              arvore.map((curso) => {
-                const cursoAberto = !!aberto.cursos[curso.id]
+              arvoreVisivel.map((curso) => {
+                const cursoAberto = !!abertoVisivel.cursos[curso.id]
                 const nTurmas = (curso.turmas || []).length
                 return (
                   <div
@@ -348,7 +372,7 @@ export default function BibliotecaPage() {
                           </Button>
                         </form>
                         {(curso.turmas || []).map((turma) => {
-                          const turmaAberta = !!aberto.turmas[turma.id]
+                          const turmaAberta = !!abertoVisivel.turmas[turma.id]
                           const turmaOn = String(turma.id) === String(turmaFoco)
                           const nDisc = (turma.disciplinas || []).length
                           return (

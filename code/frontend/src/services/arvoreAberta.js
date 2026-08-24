@@ -1,13 +1,5 @@
 export function estadoPadraoArvore(arvore) {
-  const cursos = {}
-  const turmas = {}
-  ;(arvore || []).forEach((curso, i) => {
-    cursos[curso.id] = i === 0
-    ;(curso.turmas || []).forEach((turma, j) => {
-      turmas[turma.id] = i === 0 && j === 0
-    })
-  })
-  return { cursos, turmas }
+  return recolherArvore(arvore)
 }
 
 export function recolherArvore(arvore) {
@@ -56,4 +48,63 @@ export function caminhoDoFoco(arvore, { turmaId, disciplinaId } = {}) {
     }
   }
   return null
+}
+
+export function textoDaBusca(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+}
+
+export function casaComBusca(valor, busca) {
+  const q = textoDaBusca(busca).trim()
+  if (q === '') return true
+
+  return textoDaBusca(valor).includes(q)
+}
+
+export function filtrarArvore(arvore, busca) {
+  const q = String(busca || '').trim()
+  if (q === '') return arvore || []
+
+  return (arvore || [])
+    .map((curso) => {
+      const turmas = (curso.turmas || [])
+        .map((turma) => {
+          const disciplinas = (turma.disciplinas || [])
+            .map((disciplina) => {
+              const aulas = (disciplina.aulas || []).filter((aula) => casaComBusca(aula.titulo, q))
+              if (casaComBusca(disciplina.nome, q)) {
+                return disciplina
+              }
+              if (aulas.length > 0) {
+                return { ...disciplina, aulas }
+              }
+
+              return null
+            })
+            .filter(Boolean)
+
+          if (casaComBusca(turma.nome, q)) {
+            return turma
+          }
+          if (disciplinas.length > 0) {
+            return { ...turma, disciplinas }
+          }
+
+          return null
+        })
+        .filter(Boolean)
+
+      if (casaComBusca(curso.nome, q)) {
+        return curso
+      }
+      if (turmas.length > 0) {
+        return { ...curso, turmas }
+      }
+
+      return null
+    })
+    .filter(Boolean)
 }
