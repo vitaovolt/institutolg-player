@@ -227,6 +227,55 @@ test.describe('F4 módulos', () => {
     await expect(page.getByTestId('toast')).toContainText('Nome da aula atualizado')
   })
 
+  test('detalhe: move uma aula de teste para outra disciplina', async ({ page }) => {
+    await entrarComoCarolina(page)
+    const ids = await page.evaluate(async () => {
+      const token = localStorage.getItem('ilg_token')
+      const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json', 'Content-Type': 'application/json' }
+      const bib = await fetch('/api/v1/biblioteca', { headers })
+      const json = await bib.json()
+      const turmaId = json.data[0].turmas[0].id
+      const origemId = json.data[0].turmas[0].disciplinas[0].id
+      const disc = await fetch(`/api/v1/turmas/${turmaId}/disciplinas`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ nome: `Disc mover ${Date.now()}` }),
+      })
+      const destino = await disc.json()
+      const res = await fetch(`/api/v1/disciplinas/${origemId}/aulas`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ titulo: `Aula mover ${Date.now()}` }),
+      })
+      const aula = await res.json()
+      return { aulaId: aula.data.id, destinoId: destino.data.id, destinoNome: destino.data.nome, titulo: aula.data.titulo }
+    })
+
+    await page.goto(`/aulas/${ids.aulaId}`)
+    await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+    await page.getByTestId('btn-editar-aula').click()
+    await expect(page.getByTestId('pagina-editar-aula')).toBeVisible()
+    await expect(page.getByTestId('form-mover-aula')).toContainText('Não arraste o arquivo no Drive')
+    await expect(page.getByTestId('pagina-editar-aula')).not.toContainText(/R2|AWS|S3|Cloudflare/i)
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain(ids.destinoNome)
+      expect(dialog.message()).toContain('HTML da Eduq')
+      await dialog.accept()
+    })
+
+    await page.getByTestId('select-disciplina-destino').selectOption(String(ids.destinoId))
+    await page.getByTestId('btn-mover-aula').click()
+    await expect(page.getByTestId('pagina-detalhe-aula')).toBeVisible()
+    await expect(page.getByTestId('pagina-detalhe-aula')).toContainText(ids.destinoNome)
+    await expect(page.getByTestId('toast')).toContainText('Aula movida')
+
+    await page.goto('/biblioteca')
+    await page.getByTestId('btn-expandir').click()
+    await expect(page.getByTestId(`disciplina-${ids.destinoNome}`)).toBeVisible()
+    await expect(page.getByTestId(`aula-${ids.titulo}`)).toBeVisible()
+  })
+
   test('detalhe: exclui a aula Revisão e volta à biblioteca', async ({ page }) => {
     await entrarComoCarolina(page)
     await page.getByTestId('aula-Revisão').getByRole('link', { name: 'Revisão' }).click()

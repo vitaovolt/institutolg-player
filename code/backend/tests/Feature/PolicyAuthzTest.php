@@ -20,6 +20,7 @@ class PolicyAuthzTest extends TestCase
 
         $this->putJson('/api/v1/cursos/'.$curso->id, ['nome' => 'Hack'])->assertUnauthorized();
         $this->postJson('/api/v1/aulas/'.$aula->id.'/publicar')->assertUnauthorized();
+        $this->postJson('/api/v1/aulas/'.$aula->id.'/mover', ['disciplina_id' => $aula->disciplina_id])->assertUnauthorized();
         $this->getJson('/api/v1/biblioteca')->assertUnauthorized();
 
         $this->assertDatabaseHas('cursos', ['id' => $curso->id, 'nome' => 'Original']);
@@ -38,6 +39,7 @@ class PolicyAuthzTest extends TestCase
         $this->getJson('/api/v1/resumo-mes')->assertForbidden();
         $this->getJson('/api/v1/usuarios')->assertForbidden();
         $this->postJson('/api/v1/aulas/'.$aula->id.'/despublicar')->assertForbidden();
+        $this->postJson('/api/v1/aulas/'.$aula->id.'/mover', ['disciplina_id' => $aula->disciplina_id + 1])->assertForbidden();
         $this->postJson('/api/v1/cursos', ['nome' => 'Curso invasor'])->assertForbidden();
 
         $this->assertDatabaseHas('cursos', ['id' => $curso->id, 'nome' => 'Cardiologia avançada']);

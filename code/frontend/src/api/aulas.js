@@ -15,6 +15,11 @@ export async function atualizarAula(id, payload) {
   return data
 }
 
+export async function moverAula(id, disciplinaId) {
+  const { data } = await client.post(`/aulas/${id}/mover`, { disciplina_id: disciplinaId })
+  return data
+}
+
 export async function iniciarEnvio(disciplinaId, payload, chaveIdempotencia) {
   const { data } = await client.post(`/disciplinas/${disciplinaId}/envios`, payload, {
     headers: { 'Idempotency-Key': chaveIdempotencia },

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\DisciplinaController;
 use App\Http\Controllers\Api\EnvioAulaController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\ImportarPastaController;
+use App\Http\Controllers\Api\MoverAulaController;
 use App\Http\Controllers\Api\PublicacaoAulaController;
 use App\Http\Controllers\Api\ResumoDoMesController;
 use App\Http\Controllers\Api\TurmaController;
@@ -45,6 +46,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('/aulas/{aula}/envios/concluir', [EnvioAulaController::class, 'concluir']);
         Route::post('/aulas/{aula}/envios/reprocessar', [EnvioAulaController::class, 'reprocessar']);
         Route::post('/aulas/{aula}/envios/substituir', [EnvioAulaController::class, 'substituir']);
+        Route::post('/aulas/{aula}/mover', MoverAulaController::class);
         Route::post('/aulas/{aula}/publicar', [PublicacaoAulaController::class, 'publicar']);
         Route::post('/aulas/{aula}/despublicar', [PublicacaoAulaController::class, 'despublicar']);
         Route::post('/aulas/{aula}/drive/sincronizar', [CopiaDriveController::class, 'sincronizar']);

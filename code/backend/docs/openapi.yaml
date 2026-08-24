@@ -600,6 +600,30 @@ paths:
           description: Removida
         '401':
           description: Sem token
+  /aulas/{aula}/mover:
+    parameters:
+      - $ref: '#/components/parameters/AulaId'
+    post:
+      operationId: moverAula
+      summary: Troca a disciplina no cadastro; não recopia o MP4 do play. A pasta compartilhada alinha no worker.
+      tags: [Aulas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [disciplina_id]
+              properties:
+                disciplina_id:
+                  type: integer
+      responses:
+        '200':
+          description: Aula na disciplina nova (token/HTML iguais)
+        '401':
+          description: Sem token
+        '422':
+          description: Destino inválido, título duplicado ou envio em andamento
   /aulas/{aula}/envios/substituir:
     parameters:
       - $ref: '#/components/parameters/AulaId'
