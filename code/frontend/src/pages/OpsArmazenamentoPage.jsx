@@ -54,7 +54,8 @@ export default function OpsArmazenamentoPage() {
         Custo estimado R2
       </h1>
       <p className="mt-2 max-w-xl text-[var(--brand-muted)]">
-        Visão interna do storage dos vídeos. Capas ficam de fora. Não aparece no menu do Instituto.
+        Visão interna do storage dos vídeos. Capas ficam de fora. Link discreto só para e-mails em{' '}
+        <code className="text-xs">BIBLIOTECA_OPS_EMAILS</code>.
       </p>
 
       {forbidden ? (

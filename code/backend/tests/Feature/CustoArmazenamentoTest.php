@@ -36,6 +36,10 @@ class CustoArmazenamentoTest extends TestCase
             'email' => 'educraft.ti@gmail.com',
         ]));
 
+        $this->getJson('/api/v1/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.pode_ver_ops', true);
+
         $disciplina = Disciplina::factory()->create();
 
         Aula::factory()->enviada()->create([

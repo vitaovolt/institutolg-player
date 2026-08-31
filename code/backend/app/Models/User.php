@@ -72,7 +72,7 @@ class User extends Authenticatable
     }
 
     /**
-     * @return array{id: int, name: string, email: string}
+     * @return array{id: int, name: string, email: string, pode_ver_ops: bool}
      */
     public function toAuthArray(): array
     {
@@ -80,6 +80,7 @@ class User extends Authenticatable
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'pode_ver_ops' => $this->podeVerOpsArmazenamento(),
         ];
     }
 }

@@ -38,7 +38,8 @@ class AuthTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.token_type', 'Bearer')
             ->assertJsonPath('data.user.email', 'carolina@institutolg.local')
-            ->assertJsonPath('data.user.name', $user->name);
+            ->assertJsonPath('data.user.name', $user->name)
+            ->assertJsonPath('data.user.pode_ver_ops', false);
 
         $this->assertNotEmpty($response->json('data.token'));
         $this->assertDatabaseHas('personal_access_tokens', [
@@ -105,7 +106,8 @@ class AuthTest extends TestCase
         $this->withToken($token)
             ->getJson('/api/v1/auth/me')
             ->assertOk()
-            ->assertJsonPath('data.email', $user->email);
+            ->assertJsonPath('data.email', $user->email)
+            ->assertJsonPath('data.pode_ver_ops', false);
 
         $this->withToken($token)
             ->postJson('/api/v1/auth/logout')

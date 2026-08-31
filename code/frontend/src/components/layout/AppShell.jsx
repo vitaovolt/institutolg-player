@@ -29,6 +29,16 @@ export default function AppShell({ children }) {
           </nav>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-[var(--brand-muted)]">{user?.name}</span>
+            {user?.pode_ver_ops ? (
+              <NavLink
+                to="/ops/armazenamento"
+                title="Custo estimado R2 (Educraft)"
+                data-testid="nav-ops-armazenamento"
+                className="text-xs font-semibold text-[var(--brand-muted)] no-underline opacity-50 hover:opacity-100 hover:text-[var(--brand-primary)]"
+              >
+                Ops
+              </NavLink>
+            ) : null}
             <button
               type="button"
               onClick={logout}
