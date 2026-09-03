@@ -74,6 +74,85 @@ test.describe('F4 módulos', () => {
     await expect(player.getByRole('link', { name: /download/i })).toHaveCount(0)
   })
 
+  test('player retoma progresso por aula no localStorage', async ({ page, context }) => {
+    await entrarComoCarolina(page)
+    await expandirBiblioteca(page)
+
+    async function srcDaAula(titulo) {
+      await page.getByTestId(`aula-${titulo}`).getByRole('link', { name: titulo }).click()
+      const html = await page.getByTestId('html-iframe').inputValue()
+      const src = html.match(/src="([^"]+)"/)?.[1]?.replace('localhost', '127.0.0.1')
+      expect(src).toBeTruthy()
+      await navPrincipal(page).getByRole('link', { name: 'Biblioteca' }).click()
+      await expandirBiblioteca(page)
+      return src
+    }
+
+    const srcIntro = await srcDaAula('Introdução')
+    const srcCasos = await srcDaAula('Casos clínicos')
+    const tokenIntro = srcIntro.match(/\/assistir\/([^/?"]+)/)?.[1]
+    const tokenCasos = srcCasos.match(/\/assistir\/([^/?"]+)/)?.[1]
+    expect(tokenIntro).toBeTruthy()
+    expect(tokenCasos).toBeTruthy()
+
+    const player = await context.newPage()
+
+    async function prepararPlayer(page) {
+      const video = page.getByTestId('player-video')
+      await expect(video).toBeVisible()
+      await page.evaluate(() => {
+        const v = document.querySelector('[data-testid="player-video"]')
+        Object.defineProperty(v, 'duration', { configurable: true, value: 3600 })
+      })
+    }
+
+    async function dispararRestauracao(page) {
+      await page.evaluate(() => {
+        const v = document.querySelector('[data-testid="player-video"]')
+        Object.defineProperty(v, 'duration', { configurable: true, value: 3600 })
+        v.dispatchEvent(new Event('loadedmetadata'))
+      })
+    }
+
+    await player.goto(srcIntro)
+    await prepararPlayer(player)
+    await player.evaluate(() => {
+      const v = document.querySelector('[data-testid="player-video"]')
+      v.currentTime = 120
+      v.dispatchEvent(new Event('pause'))
+    })
+
+    const salvoIntro = await player.evaluate((token) => {
+      const data = JSON.parse(localStorage.getItem('ilg-player-progresso') || '{}')
+      return data[token]?.s
+    }, tokenIntro)
+    expect(salvoIntro).toBeCloseTo(120, 0)
+
+    await player.goto(srcCasos)
+    await prepararPlayer(player)
+    await player.evaluate(() => {
+      const v = document.querySelector('[data-testid="player-video"]')
+      v.currentTime = 45
+      v.dispatchEvent(new Event('pause'))
+    })
+
+    const salvoCasos = await player.evaluate((token) => {
+      const data = JSON.parse(localStorage.getItem('ilg-player-progresso') || '{}')
+      return data[token]?.s
+    }, tokenCasos)
+    expect(salvoCasos).toBeCloseTo(45, 0)
+
+    await player.goto(srcIntro)
+    await prepararPlayer(player)
+    await dispararRestauracao(player)
+    expect(await player.getByTestId('player-video').evaluate((v) => v.currentTime)).toBeCloseTo(120, 0)
+
+    await player.goto(srcCasos)
+    await prepararPlayer(player)
+    await dispararRestauracao(player)
+    expect(await player.getByTestId('player-video').evaluate((v) => v.currentTime)).toBeCloseTo(45, 0)
+  })
+
   test('colar na Eduq mostra o widget Iframe', async ({ page }) => {
     await entrarComoCarolina(page)
     await expandirBiblioteca(page)

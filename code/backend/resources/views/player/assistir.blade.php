@@ -104,8 +104,15 @@
                 return;
             }
 
+            var TOKEN = @json($aula->token_publico);
             var KEY = 'ilg-player-velocidade';
+            var KEY_PROGRESSO = 'ilg-player-progresso';
+            var MIN_SAVE = 10;
+            var END_BUFFER = 30;
+            var SAVE_INTERVAL = 5000;
+            var MAX_ENTRIES = 50;
             var ALLOWED = [1, 1.5, 2, 4];
+            var lastSave = 0;
 
             function parseRate(value) {
                 var rate = parseFloat(value);
@@ -135,6 +142,74 @@
                 } catch (e) {}
             }
 
+            function lerProgresso() {
+                try {
+                    return JSON.parse(localStorage.getItem(KEY_PROGRESSO) || '{}');
+                } catch (e) {
+                    return {};
+                }
+            }
+
+            function gravarProgresso(data) {
+                try {
+                    localStorage.setItem(KEY_PROGRESSO, JSON.stringify(data));
+                } catch (e) {}
+            }
+
+            function podaProgresso(data) {
+                var keys = Object.keys(data);
+                if (keys.length <= MAX_ENTRIES) {
+                    return data;
+                }
+                keys.sort(function (a, b) {
+                    return (data[b].at || 0) - (data[a].at || 0);
+                });
+                var podado = {};
+                keys.slice(0, MAX_ENTRIES).forEach(function (key) {
+                    podado[key] = data[key];
+                });
+                return podado;
+            }
+
+            function duracaoValida() {
+                return isFinite(video.duration) && video.duration > MIN_SAVE + END_BUFFER;
+            }
+
+            function salvarProgresso() {
+                if (!TOKEN || !duracaoValida()) {
+                    return;
+                }
+                var tempo = video.currentTime;
+                var data = lerProgresso();
+                if (tempo < MIN_SAVE || tempo >= video.duration - END_BUFFER) {
+                    if (data[TOKEN]) {
+                        delete data[TOKEN];
+                        gravarProgresso(data);
+                    }
+                    return;
+                }
+                data[TOKEN] = {
+                    s: Math.round(tempo * 10) / 10,
+                    at: Math.floor(Date.now() / 1000),
+                };
+                gravarProgresso(podaProgresso(data));
+            }
+
+            function restaurarProgresso() {
+                if (!TOKEN || !duracaoValida()) {
+                    return;
+                }
+                var entry = lerProgresso()[TOKEN];
+                if (!entry || typeof entry.s !== 'number') {
+                    return;
+                }
+                var tempo = entry.s;
+                if (tempo < MIN_SAVE || tempo >= video.duration - END_BUFFER) {
+                    return;
+                }
+                video.currentTime = Math.min(tempo, video.duration - 5);
+            }
+
             var hideTimer = null;
 
             function revealSpeeds() {
@@ -162,12 +237,27 @@
                 clearTimeout(hideTimer);
                 wrap.classList.remove('is-controls');
             });
-            video.addEventListener('loadedmetadata', function () { apply(wanted()); });
+            video.addEventListener('loadedmetadata', function () {
+                apply(wanted());
+                restaurarProgresso();
+            });
             video.addEventListener('play', function () {
                 apply(wanted());
                 revealSpeeds();
             });
-            video.addEventListener('pause', revealSpeeds);
+            video.addEventListener('pause', function () {
+                salvarProgresso();
+                revealSpeeds();
+            });
+            video.addEventListener('timeupdate', function () {
+                var now = Date.now();
+                if (now - lastSave >= SAVE_INTERVAL) {
+                    lastSave = now;
+                    salvarProgresso();
+                }
+            });
+            video.addEventListener('ended', salvarProgresso);
+            window.addEventListener('pagehide', salvarProgresso);
             video.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
         })();
     </script>

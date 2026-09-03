@@ -74,6 +74,19 @@ class PlayerPublicoTest extends TestCase
         $pagina->assertSee('video.playbackRate', false);
     }
 
+    public function test_player_retoma_progresso_por_aula_no_local_storage(): void
+    {
+        $aula = $this->gravarPlay(Aula::factory()->publicada()->create(['titulo' => 'Retomar']));
+
+        $pagina = $this->get('/assistir/'.$aula->token_publico);
+
+        $pagina->assertOk()
+            ->assertSee('ilg-player-progresso', false)
+            ->assertSee('restaurarProgresso', false)
+            ->assertSee('salvarProgresso', false)
+            ->assertSee($aula->token_publico, false);
+    }
+
     public function test_aula_despublicada_nao_abre_o_player(): void
     {
         $aula = $this->gravarPlay(Aula::factory()->enviada()->create([

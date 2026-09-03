@@ -35,3 +35,5 @@ Remote: `git@github.com:vitaovolt/institutolg-player.git`
 
 Produção (F6): ver [docs/DEPLOY.md](docs/DEPLOY.md).  
 Antes de apontar DNS: [docs/ARMAZENAMENTO.md](docs/ARMAZENAMENTO.md) (play + pasta compartilhada). Self-hosted + Deploy Key; worker da fila `biblioteca`. MVP sem e-mail transacional.
+
+Carga (50 alunos no mesmo vídeo, só faixas Range): [docs/TESTE-CARGA.md](docs/TESTE-CARGA.md) e `node scripts/carga-player.mjs`.

@@ -4,15 +4,18 @@ import { getAuthToken, setAuthToken, USER_KEY } from '../api/client'
 
 const AuthContext = createContext(null)
 
+function lerUsuarioCache() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(USER_KEY) || 'null')
-    } catch {
-      return null
-    }
-  })
-  const [loading, setLoading] = useState(Boolean(getAuthToken()))
+  const [user, setUser] = useState(lerUsuarioCache)
+  // Com usuário já no cache, não prende a SPA em "Carregando…" à espera do /auth/me.
+  const [loading, setLoading] = useState(() => Boolean(getAuthToken()) && !lerUsuarioCache())
 
   useEffect(() => {
     let alive = true
