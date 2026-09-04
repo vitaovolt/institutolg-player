@@ -46,3 +46,10 @@ Artisan::command('biblioteca:retomar-envio {aula}', function () {
 
     return 0;
 })->purpose('Retoma envio quando o arquivo já está no objeto e a aula ficou em enviando.');
+
+Artisan::command('biblioteca:reconciliar-envios', function () {
+    $n = app(\App\Actions\ReconciliarEnviosPendentes::class)->handle();
+    $this->info($n === 0 ? 'Nenhuma aula presa para retomar.' : "Retomadas: {$n}");
+
+    return 0;
+})->purpose('Retoma aulas em enviando/erro cujo arquivo já está no objeto.');

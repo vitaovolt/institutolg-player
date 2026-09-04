@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\ReconciliarEnviosPendentes;
 use App\Actions\RetomarEnvioDaAula;
 use App\Jobs\PrepararVersaoDaAulaJob;
 use App\Models\Aula;
@@ -326,6 +327,10 @@ class EnvioAulaTest extends TestCase
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
         $this->assertSame(strlen(ValidarExportMp4::amostraValida()), $aula->tamanho_bytes);
         $this->assertNull($aula->s3_upload_id);
+        $this->assertSame('pronta', $aula->status_preparo);
+        $this->assertNotNull($aula->enviado_em);
+        $this->assertNull($aula->token_upload);
+        $this->assertSame($aula->chave_arquivo, $aula->chave_play);
     }
 
     public function test_multipart_fecha_mesmo_se_completar_estourar_depois_do_objeto_pronto(): void
@@ -359,6 +364,9 @@ class EnvioAulaTest extends TestCase
         Storage::disk((string) config('biblioteca.disk_aulas'))->assertExists($aula->chave_arquivo);
         $this->assertSame(strlen(ValidarExportMp4::amostraValida()), $aula->tamanho_bytes);
         $this->assertNull($aula->s3_upload_id);
+        $this->assertSame('pronta', $aula->status_preparo);
+        $this->assertNotNull($aula->enviado_em);
+        $this->assertNull($aula->token_upload);
     }
 
     public function test_le_so_o_inicio_do_arquivo(): void
@@ -394,5 +402,47 @@ class EnvioAulaTest extends TestCase
         $this->assertSame(strlen($mp4), $pronta->tamanho_bytes);
         $this->assertNull($pronta->s3_upload_id);
         $this->assertNull($pronta->token_upload);
+    }
+
+    public function test_reconcilia_envio_preso_quando_arquivo_ja_chegou(): void
+    {
+        $mp4 = ValidarExportMp4::amostraValida();
+        $aula = Aula::factory()->create([
+            'status_preparo' => 'enviando',
+            'chave_arquivo' => 'curso/turma/disc/preso.mp4',
+            'token_upload' => 'tok-preso',
+            's3_upload_id' => null,
+            'tamanho_bytes' => strlen($mp4),
+        ]);
+        Storage::disk((string) config('biblioteca.disk_aulas'))->put($aula->chave_arquivo, $mp4);
+
+        $semArquivo = Aula::factory()->create([
+            'status_preparo' => 'enviando',
+            'chave_arquivo' => 'curso/turma/disc/incompleto.mp4',
+            'token_upload' => 'tok-incompleto',
+            'tamanho_bytes' => 123,
+        ]);
+
+        $aindaSubindo = Aula::factory()->create([
+            'status_preparo' => 'enviando',
+            'chave_arquivo' => 'curso/turma/disc/subindo.mp4',
+            'token_upload' => 'tok-subindo',
+            's3_upload_id' => 'up-aberto',
+            'tamanho_bytes' => null,
+        ]);
+
+        $n = app(ReconciliarEnviosPendentes::class)->handle();
+
+        $this->assertSame(1, $n);
+        $this->assertSame('pronta', $aula->fresh()->status_preparo);
+        $this->assertNotNull($aula->fresh()->enviado_em);
+        $this->assertSame('enviando', $semArquivo->fresh()->status_preparo);
+        $this->assertSame('enviando', $aindaSubindo->fresh()->status_preparo);
+    }
+
+    public function test_agenda_reconcilia_envios_pendentes(): void
+    {
+        $this->artisan('schedule:list')
+            ->expectsOutputToContain('reconciliar-envios-pendentes');
     }
 }

@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->hourly()
             ->withoutOverlapping(60)
             ->name('importar-pasta-compartilhada');
+        $schedule->job(new \App\Jobs\ReconciliarEnviosPendentesJob)
+            ->everyFiveMinutes()
+            ->withoutOverlapping(10)
+            ->name('reconciliar-envios-pendentes');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Bearer Sanctum — sem statefulApi/CSRF (SPA em origem Vite distinta).

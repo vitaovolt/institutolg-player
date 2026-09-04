@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\ConcluirEnvioDaAula;
 use App\Actions\FecharMultipartDoEnvio;
 use App\Models\Aula;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -33,7 +34,7 @@ class CompletarMultipartDaAulaJob implements ShouldQueue, ShouldBeUnique
         return 'multipart-'.$this->aulaId;
     }
 
-    public function handle(FecharMultipartDoEnvio $fechar): void
+    public function handle(FecharMultipartDoEnvio $fechar, ConcluirEnvioDaAula $concluir): void
     {
         $aula = Aula::query()->find($this->aulaId);
         if ($aula === null) {
@@ -44,12 +45,13 @@ class CompletarMultipartDaAulaJob implements ShouldQueue, ShouldBeUnique
         $partes = Cache::get('aula-multipart:'.$this->aulaId, []);
 
         try {
-            $fechar->handle($aula, is_array($partes) ? $partes : []);
+            $aula = $fechar->handle($aula, is_array($partes) ? $partes : []);
             Cache::forget('aula-multipart:'.$this->aulaId);
         } catch (Throwable $e) {
             $aula->refresh();
             if (blank($aula->s3_upload_id) && (int) $aula->tamanho_bytes > 0) {
                 Cache::forget('aula-multipart:'.$this->aulaId);
+                $this->concluirArquivoChegou($concluir, $aula);
 
                 return;
             }
@@ -60,5 +62,17 @@ class CompletarMultipartDaAulaJob implements ShouldQueue, ShouldBeUnique
 
             throw $e;
         }
+
+        $this->concluirArquivoChegou($concluir, $aula);
+    }
+
+    private function concluirArquivoChegou(ConcluirEnvioDaAula $concluir, Aula $aula): void
+    {
+        $aula->refresh();
+        if (! in_array($aula->status_preparo, ['enviando', 'erro'], true)) {
+            return;
+        }
+
+        $concluir->handle($aula);
     }
 }
